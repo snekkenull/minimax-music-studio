@@ -1,0 +1,99 @@
+/*
+ * theme.css — centralized design tokens for Music Studio.
+ *
+ * Single source of truth for both music-generator.html and settings.html.
+ * The dark variant is the default (matches the original inline tokens in
+ * music-generator.html :root{…}). Light is opt-in via
+ *   <html data-theme="light">
+ * which is set by the theme toggle in js/theme.js.
+ *
+ * Token names match the inline variables previously used in each page so
+ * the body of the pages needs no token renames — just delete their
+ * local :root{…} and link this file instead.
+ */
+
+/* ─── DARK (default) ──────────────────────────────────────────────── */
+:root,
+:root[data-theme="dark"] {
+  --bg-base: #0b0d10;
+  --bg-elev-1: rgba(255,255,255,.04);
+  --bg-elev-2: rgba(255,255,255,.07);
+  --border-soft: rgba(255,255,255,.08);
+  --border-strong: rgba(255,255,255,.16);
+  --text-primary: #f4f4f5;
+  --text-secondary: #a1a1aa;
+  --text-muted: #71717a;
+  --accent: #a78bfa;
+  --accent-soft: rgba(167,139,250,.14);
+  --accent-gradient-end: #ec4899;
+  --success: #34d399;
+  --danger: #f87171;
+  --warning: #fbbf24;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --shadow-soft: 0 1px 2px rgba(0,0,0,.2), 0 8px 24px rgba(0,0,0,.18);
+  /* Background radial accents — visible against dark base */
+  --bg-accent-a: rgba(167,139,250,.10);
+  --bg-accent-b: rgba(52,211,153,.06);
+  /* Card-inset highlight for the "glass" feel */
+  --card-inset: rgba(255,255,255,.02);
+  /* Input focus ring glow */
+  --input-focus-bg: rgba(255,255,255,.06);
+  /* Translucent surfaces that need to read the base color underneath */
+  --topbar-bg: rgba(11,13,16,.6);
+  --brand-dot-shadow: rgba(255,255,255,.08);
+  --brand-dot-glow: rgba(167,139,250,.4);
+  --success-soft: rgba(52,211,153,.12);
+  --danger-soft: rgba(248,113,113,.14);
+  --warning-soft: rgba(251,191,36,.14);
+  /* Section card inset highlight (the "glass" rim) */
+  --card-inset-shadow: rgba(255,255,255,.02);
+  /* Toast popup surface */
+  --toast-bg: rgba(11,13,16,.92);
+  /* Body radial accents (also exposed for pages that want to use them
+     instead of duplicating the literal rgba values) */
+  --bg-accent-a-strong: rgba(167,139,250,.1);
+  --bg-accent-b-strong: rgba(52,211,153,.06);
+}
+
+/* ─── LIGHT ───────────────────────────────────────────────────────── */
+:root[data-theme="light"] {
+  --bg-base: #f8f9fb;
+  --bg-elev-1: rgba(0,0,0,.025);
+  --bg-elev-2: rgba(0,0,0,.045);
+  --border-soft: rgba(0,0,0,.08);
+  --border-strong: rgba(0,0,0,.14);
+  --text-primary: #18181b;
+  --text-secondary: #52525b;
+  --text-muted: #71717a;
+  /* Purple darkened one step for AA contrast on light surfaces */
+  --accent: #7c3aed;
+  --accent-soft: rgba(124,58,237,.10);
+  --accent-gradient-end: #be185d;
+  --success: #059669;
+  --danger: #dc2626;
+  --warning: #d97706;
+  --shadow-soft: 0 1px 2px rgba(0,0,0,.05), 0 8px 24px rgba(0,0,0,.07);
+  /* Background radial accents — kept, but at lower opacity so they don't
+     wash out the lighter base */
+  --bg-accent-a: rgba(124,58,237,.05);
+  --bg-accent-b: rgba(5,150,105,.04);
+  --card-inset: rgba(255,255,255,.6);
+  --input-focus-bg: rgba(124,58,237,.04);
+  --topbar-bg: rgba(248,249,251,.78);
+  --brand-dot-shadow: rgba(124,58,237,.18);
+  --brand-dot-glow: rgba(124,58,237,.30);
+  --success-soft: rgba(5,150,105,.12);
+  --danger-soft: rgba(220,38,38,.10);
+  --warning-soft: rgba(217,119,6,.12);
+  --card-inset-shadow: rgba(255,255,255,.6);
+  --toast-bg: rgba(24,24,27,.92);
+  --bg-accent-a-strong: rgba(124,58,237,.06);
+  --bg-accent-b-strong: rgba(5,150,105,.05);
+}
+
+/* Respect user's reduced-motion preference — kill the gradient pulse if
+   present. Pages don't add a pulse today, but hook the token anyway. */
+@media (prefers-reduced-motion: reduce) {
+  :root { --shadow-soft: 0 1px 2px rgba(0,0,0,.1); }
+}

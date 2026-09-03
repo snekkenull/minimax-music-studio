@@ -1,0 +1,1125 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Music Studio · MiniMax Week × GMI Cloud</title>
+  <link rel="stylesheet" href="theme.css" />
+  <script src="js/theme.js"></script>
+  <script src="js/i18n.js"></script>
+  <style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg-base);color:var(--text-primary);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",Inter,"PingFang SC","Microsoft YaHei",sans-serif;font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;font-feature-settings:"tnum" 1,"ss01" 1}
+body{background:radial-gradient(1200px 600px at 80% -10%,var(--bg-accent-a-strong),transparent 60%),radial-gradient(900px 500px at -10% 110%,var(--bg-accent-b-strong),transparent 60%),var(--bg-base);min-height:100vh}
+.app{display:grid;grid-template-columns:268px 1fr 360px;height:100vh;min-width:0}
+.rail{background:var(--bg-elev-1);border-right:1px solid var(--border-soft);padding:20px 14px;display:flex;flex-direction:column;gap:4px;backdrop-filter:blur(20px)}
+.rail-brand{display:flex;align-items:center;gap:10px;padding:4px 10px 22px;border-bottom:1px solid var(--border-soft);margin-bottom:14px}
+.rail-brand .dot{width:22px;height:22px;border-radius:6px;background:linear-gradient(135deg,var(--accent),var(--accent-gradient-end));box-shadow:0 0 0 1px var(--brand-dot-shadow),0 4px 14px var(--brand-dot-glow)}
+.rail-brand .name{font-size:13px;font-weight:600;letter-spacing:-.01em}
+.rail-brand .sub{font-size:11px;color:var(--text-muted);margin-top:1px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--radius-sm);color:var(--text-secondary);font-size:13px;transition:background .12s,color .12s;cursor:pointer}
+.nav-item:hover{background:var(--bg-elev-2);color:var(--text-primary)}
+.nav-item.active{background:var(--accent-soft);color:var(--text-primary)}
+.nav-item .ico{width:16px;height:16px;opacity:.8}
+.rail-section{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);padding:16px 10px 6px}
+/* Phase 14: "新建任务" 操作型 nav-item(沿用 nav-item 视觉,加 active feedback) */
+.nav-item-action{cursor:pointer;background:transparent;border:1px dashed transparent;width:calc(100% - 12px);margin:0 6px;text-align:left;font:inherit;color:inherit;border-radius:var(--radius-sm);transition:background .12s,border-color .12s,color .12s}
+.nav-item-action:hover{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.nav-item-action:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.nav-item-action:active{background:rgba(167,139,250,.18)}
+.nav-item-action .ico{color:var(--accent)}
+/* Phase 9: 左侧历史会话侧栏 */
+/* Phase 23: 改为「任务组(job)」视角 — 一个 job = 一行,可展开子任务 */
+.tasks-list{padding:0 6px 6px;display:flex;flex-direction:column;gap:1px;flex:1 1 auto;min-height:0;overflow-y:auto}
+.tasks-list::-webkit-scrollbar{width:4px}
+.tasks-list::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:2px}
+.tasks-list::-webkit-scrollbar-track{background:transparent}
+.tasks-job{display:flex;flex-direction:column}
+.tasks-item{display:flex;align-items:center;gap:5px;padding:5px 6px;border-radius:var(--radius-sm);font-size:11.5px;color:var(--text-secondary);cursor:pointer;transition:background .12s,color .12s;min-width:0-height:28px;position:relative;border:1px solid transparent}
+.tasks-item:hover{background:var(--bg-elev-1);color:var(--text-primary)}
+.tasks-item:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.tasks-item.expanded{background:var(--bg-elev-1);color:var(--text-primary)}
+.tasks-arrow,.tasks-arrow-spacer{width:12px;font-size:10px;color:var(--text-muted);flex-shrink:0;text-align:center}
+.tasks-arrow-spacer{visibility:hidden}
+.tasks-title{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3;cursor:text;outline:none;min-width:0}
+.tasks-title:focus{background:var(--bg-base);border-radius:2px;padding:0 4px;margin:0 -4px}
+.tasks-summary{font-size:10px;color:var(--text-muted);flex-shrink:0;font-variant-numeric:tabular-nums;background:var(--bg-elev-2);padding:1px 6px;border-radius:8px}
+.tasks-badge{font-size:9px;padding:1px 6px;border-radius:8px;flex-shrink:0;text-transform:uppercase;letter-spacing:.04em;font-weight:600}
+.tasks-badge.active{background:rgba(167,139,250,.18);color:var(--accent)}
+.tasks-badge.done{background:rgba(52,211,153,.15);color:var(--success)}
+.tasks-badge.cancelled{background:var(--bg-elev-2);color:var(--text-muted)}
+.tasks-resume{font-size:10px;padding:6px 10px;border-radius:8px;background:var(--accent);color:#fff;border:0;cursor:pointer;flex-shrink:0;font-weight:600;transition:background .12s;min-height:28px}
+.tasks-resume:hover{background:var(--accent-gradient-end,#8b5cf6)}
+.tasks-resume:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.tasks-del{opacity:0;background:transparent;border:0;color:var(--text-muted);cursor:pointer;font-size:14px;line-height:1;width:28px;height:28px;border-radius:6px;display:grid;place-items:center;transition:opacity .12s,color .12s,background .12s;padding:0;flex-shrink:0}
+@media (max-width:480px){
+  .tasks-resume{min-height:36px;padding:10px 14px}
+  .tasks-del{width:36px;height:36px}
+}
+.tasks-time{font-size:10px;color:var(--text-muted);flex-shrink:0;font-variant-numeric:tabular-nums}
+.tasks-item:hover .tasks-del,.tasks-item:focus-within .tasks-del{opacity:.7}
+.tasks-del:hover{opacity:1!important;color:var(--danger);background:rgba(248,113,113,.1)}
+.tasks-del:focus-visible{opacity:1;outline:2px solid var(--danger);outline-offset:1px}
+/* 子任务列表(展开时)— 不限高,跟随父 .tasks-list 滚动;单 job 子任务数无封顶 */
+.tasks-sub-list{padding:2px 0 4px 18px;display:flex;flex-direction:column;gap:1px;overflow-y:visible}
+.tasks-subtask{display:flex;align-items:center;gap:5px;padding:3px 6px;border-radius:var(--radius-sm);font-size:10.5px;color:var(--text-secondary);cursor:pointer;transition:background .12s,color .12s;min-height:22px;min-width:0}
+.tasks-subtask:hover{background:var(--bg-elev-2);color:var(--text-primary)}
+.tasks-sub-icon{width:12px;flex-shrink:0;text-align:center;font-size:10px;color:var(--text-muted);font-weight:600}
+.tasks-sub-icon.success{color:var(--success)}
+.tasks-sub-icon.failed{color:var(--danger)}
+.tasks-sub-icon.running{color:var(--accent);animation:tasks-spin 1.2s linear infinite}
+.tasks-sub-icon.planning{color:var(--accent)}
+.tasks-sub-icon.cancelled{color:var(--text-muted);text-decoration:line-through}
+@keyframes tasks-spin{to{transform:rotate(360deg)}}
+.tasks-sub-title{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+/* 子任务 ▶ 播放按钮 — 沿用 .lib-play 视觉,但更小(18×18) */
+.tasks-sub-play{background:transparent;border:0;cursor:pointer;width:18px;height:18px;display:grid;place-items:center;border-radius:var(--radius-sm);color:var(--text-muted);transition:color .12s,background .12s;padding:0;flex-shrink:0}
+.tasks-sub-play:hover:not(:disabled){color:var(--success);background:rgba(52,211,153,.1)}
+.tasks-sub-play:focus-visible{outline:2px solid var(--success);outline-offset:1px}
+.tasks-sub-play:disabled{opacity:.35;cursor:not-allowed}
+.tasks-empty{padding:6px 10px 4px;font-size:11px;color:var(--text-muted);display:flex;align-items:center;gap:6px}
+.tasks-empty.hidden{display:none}
+.tasks-empty .ico{width:14px;height:14px;opacity:.6}
+.tasks-more{font-size:10.5px;color:var(--accent);padding:4px 12px;cursor:pointer;background:transparent;border:0;width:100%;text-align:left;transition:color .12s;margin-bottom:4px}
+.tasks-more:hover{color:var(--text-primary)}
+.rail-foot{margin-top:auto;padding:12px 10px;font-size:11px;color:var(--text-muted);border-top:1px solid var(--border-soft);line-height:1.7}
+.rail-foot code{color:var(--text-secondary);font-family:"SF Mono",Menlo,monospace;font-size:10.5px}
+.rail-foot-link{display:inline-flex;align-items:center;gap:6px;color:var(--accent);text-decoration:none;transition:color .12s;font-size:11px}
+.rail-foot-link:hover{color:var(--accent-gradient-end);text-decoration:underline}
+.rail-foot-link:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+.rail-foot-ico{opacity:.7;transition:opacity .12s}
+.rail-foot-link:hover .rail-foot-ico{opacity:1}
+/* Phase 27: ensure <a> tags injected by i18n extLink() are visible & AA-compliant */
+a{color:var(--accent);text-decoration:none;text-underline-offset:2px}
+a:hover{color:var(--accent-gradient-end);text-decoration:underline}
+a:visited{color:var(--accent)}
+a:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:2px}
+.llm-result a,.crumb a,.hint a,.field p a{text-decoration:underline}
+.main{overflow-y:auto;padding:28px 36px 40px}
+.main::-webkit-scrollbar{width:4px}
+.main::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:2px}
+.main::-webkit-scrollbar-track{background:transparent}
+.page-head{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:28px;padding-bottom:20px;border-bottom:1px solid var(--border-soft)}
+.page-head h1{font-size:22px;font-weight:600;letter-spacing:-.02em}
+.page-head .crumb{font-size:12px;color:var(--text-muted);margin-bottom:6px}
+.page-head .crumb code{color:var(--text-secondary);background:var(--bg-elev-2);padding:1px 6px;border-radius:4px;font-family:"SF Mono",Menlo,monospace;font-size:11px}
+.head-actions{display:flex;gap:8px;align-items:center}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;font-size:11px;background:var(--bg-elev-2);border:1px solid var(--border-soft);border-radius:999px;color:var(--text-secondary)}
+.chip .pulse{width:6px;height:6px;border-radius:50%;background:var(--success);box-shadow:0 0 8px var(--success)}
+
+    /* Theme toggle (P4) */
+    .theme-toggle{
+      min-width:32px;min-height:32px;display:inline-flex;align-items:center;justify-content:center;
+      background:var(--bg-elev-2);border:1px solid var(--border-soft);border-radius:8px;
+      cursor:pointer;color:var(--text-secondary);transition:background .12s,color .12s,border-color .12s;
+      padding:0;
+    }
+    .theme-toggle:hover{background:var(--bg-elev-1);color:var(--text-primary);border-color:var(--border-strong)}
+    .theme-toggle:active{transform:scale(.94)}
+    /* Phase 7 P5: language toggle — sits next to the theme button, mirrors its shape */
+    .lang-toggle{
+      min-width:32px;min-height:32px;display:inline-flex;align-items:center;justify-content:center;
+      background:var(--bg-elev-2);border:1px solid var(--border-soft);border-radius:8px;
+      cursor:pointer;color:var(--text-secondary);transition:background .12s,color .12s,border-color .12s;
+      padding:0;font-size:14px;line-height:1;
+    }
+    .lang-toggle:hover{background:var(--bg-elev-1);color:var(--text-primary);border-color:var(--border-strong)}
+    .lang-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+    .lang-toggle:active{transform:scale(.94)}
+    /* Phase 28: extend clickable area to 40×40 (desktop dense) / 44×44 (mobile).
+       NOTE: ::after / box-shadow transparent do NOT actually receive events in any browser
+       (they are visual only). Real hit area extension requires enlarging the visible box. */
+    .theme-toggle,.lang-toggle{min-width:40px;min-height:40px}
+    @media (max-width:480px){
+      .theme-toggle,.lang-toggle{min-width:44px;min-height:44px}
+    }
+    .theme-toggle .theme-icon{
+      width:16px;height:16px;display:block;background:currentColor;
+      -webkit-mask:no-repeat center / contain;mask:no-repeat center / contain;
+    }
+    :root[data-theme="dark"]  .theme-toggle .theme-icon{
+      -webkit-mask-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='4'/><path d='M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41'/></svg>");
+              mask-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='4'/><path d='M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41'/></svg>");
+    }
+    :root[data-theme="light"] .theme-toggle .theme-icon{
+      -webkit-mask-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z'/></svg>");
+              mask-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z'/></svg>");
+    }
+.card{background:var(--bg-elev-1);border:1px solid var(--border-soft);border-radius:var(--radius-md);padding:18px 20px;margin-bottom:16px;backdrop-filter:blur(12px);position:relative;box-shadow:0 1px 0 var(--card-inset-shadow) inset,0 8px 24px rgba(0,0,0,.18)}
+.card.menu-open{z-index:60}
+.card-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.card-title h2{font-size:13px;font-weight:600;letter-spacing:-.01em;display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0;row-gap:4px}
+.card-title h2 > span:first-child{white-space:nowrap}
+.card-title .badge{font-size:10px;color:var(--text-muted);background:var(--bg-elev-2);padding:2px 6px;border-radius:4px;font-family:"SF Mono",Menlo,monospace;white-space:nowrap}
+.card-title .count{font-size:11px;color:var(--text-muted);font-family:"SF Mono",Menlo,monospace}
+.field{margin-bottom:16px}
+.field:last-child{margin-bottom:0}
+.field label{display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--text-secondary);margin-bottom:6px}
+.field label .hint{color:var(--text-muted);font-size:11px;font-family:"SF Mono",Menlo,monospace}
+.field textarea,.field input[type=text],.field input[type=password]{width:100%;background:var(--bg-elev-2);border:1px solid var(--border-soft);color:var(--text-primary);padding:10px 12px;border-radius:var(--radius-sm);font-size:13px;font-family:inherit;line-height:1.55;resize:vertical;transition:border-color .12s,background .12s}
+.field textarea{min-height:220px;font-family:"SF Mono",Menlo,"PingFang SC",monospace;font-size:12.5px;line-height:1.7}
+.field textarea:focus,.field input:focus{outline:none;border-color:var(--accent);background:var(--input-focus-bg)}
+    /* Phase 7 P1: visible focus ring on every interactive control for a11y */
+    .chip:focus-visible,.btn:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+.field textarea::placeholder,.field input::placeholder{color:var(--text-muted)}
+.row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.select{position:relative}
+.select-trigger{width:100%;background:var(--bg-elev-2);border:1px solid var(--border-soft);color:var(--text-primary);padding:9px 12px;border-radius:var(--radius-sm);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;transition:border-color .12s;font-family:inherit}
+.select-trigger:hover{border-color:var(--border-strong)}
+.select.open .select-trigger{border-color:var(--accent)}
+.select-trigger .caret{width:10px;height:10px;border-right:1.5px solid var(--text-muted);border-bottom:1.5px solid var(--text-muted);transform:rotate(45deg) translate(-2px,-2px);transition:transform .15s}
+.select.open .caret{transform:rotate(-135deg) translate(-2px,-2px)}
+.select-menu{position:absolute;top:calc(100% + 4px);left:0;right:0;background:#18181b;border:1px solid var(--border-strong);border-radius:var(--radius-sm);box-shadow:var(--shadow-soft);z-index:50;overflow:hidden;display:none;max-height:240px;overflow-y:auto}
+.select.open .select-menu{display:block}
+.select-menu .opt{padding:8px 12px;font-size:12.5px;color:var(--text-secondary);cursor:pointer;display:flex;align-items:center;justify-content:space-between}
+.select-menu .opt:hover{background:var(--bg-elev-2);color:var(--text-primary)}
+.select-menu .opt.selected{color:var(--accent)}
+.select-menu .opt .meta{font-size:10.5px;color:var(--text-muted);font-family:"SF Mono",Menlo,monospace}
+.actionbar{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;background:var(--bg-elev-1);border:1px solid var(--border-soft);border-radius:var(--radius-md);backdrop-filter:blur(12px);margin-bottom:16px;gap:16px;flex-wrap:wrap}
+.actionbar .left{display:flex;align-items:center;gap:12px;color:var(--text-muted);font-size:12px;flex:1;min-width:0}
+.actionbar .left .est{color:var(--text-secondary);font-family:"SF Mono",Menlo,monospace}
+.batch{display:inline-flex;align-items:center;gap:8px;font-size:12px;color:var(--text-secondary);margin-left:4px}
+.batch .input{display:inline-flex;align-items:center;background:var(--bg-elev-2);border:1px solid var(--border-soft);border-radius:var(--radius-sm);overflow:hidden;padding:0 2px 0 8px;gap:2px;transition:border-color .12s}
+.batch .input:focus-within{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent-soft)}
+.batch .input.invalid{border-color:var(--danger);box-shadow:0 0 0 1px rgba(248,113,113,.18)}
+.batch .input input#batchInput{
+  appearance:textfield;-moz-appearance:textfield;
+  width:54px;height:24px;
+  background:transparent;border:0;outline:0;
+  font-family:"SF Mono",Menlo,monospace;
+  font-size:12px;color:var(--text-primary);
+  font-variant-numeric:tabular-nums;
+  text-align:center;padding:0;margin:0;
+  letter-spacing:.02em;
+}
+.batch .input input#batchInput::-webkit-outer-spin-button,
+.batch .input input#batchInput::-webkit-inner-spin-button{
+  -webkit-appearance:none;margin:0;
+}
+.batch .input input#batchInput::placeholder{color:var(--text-muted);opacity:.5;font-size:11px}
+.batch .input .unit{font-family:"SF Mono",Menlo,monospace;font-size:10.5px;color:var(--text-muted);padding-right:6px;user-select:none}
+.batch .input{display:inline-flex;align-items:center;background:var(--bg-elev-2);border:1px solid var(--border-soft);border-radius:var(--radius-sm);overflow:hidden;padding:0 2px 0 8px;gap:2px;transition:border-color .12s}
+.batch .input:focus-within{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent-soft)}
+.batch .input.invalid{border-color:var(--danger);box-shadow:0 0 0 1px rgba(248,113,113,.18)}
+.batch .input input#batchInput{
+  appearance:textfield;-moz-appearance:textfield;
+  width:54px;height:24px;
+  background:transparent;border:0;outline:0;
+  font-family:"SF Mono",Menlo,monospace;
+  font-size:12px;color:var(--text-primary);
+  font-variant-numeric:tabular-nums;
+  text-align:center;padding:0;margin:0;
+  letter-spacing:.02em;
+}
+.batch .input input#batchInput::-webkit-outer-spin-button,
+.batch .input input#batchInput::-webkit-inner-spin-button{
+  -webkit-appearance:none;margin:0;
+}
+.batch .input input#batchInput::placeholder{color:var(--text-muted);opacity:.5;font-size:11px}
+.batch .input .unit{font-family:"SF Mono",Menlo,monospace;font-size:10.5px;color:var(--text-muted);padding-right:6px;user-select:none}
+.batch .hint{font-size:10.5px;color:var(--text-muted);font-family:"SF Mono",Menlo,monospace}
+.batch .input:focus-within{outline:2px solid var(--accent);outline-offset:1px;border-radius:var(--radius-sm)}
+/* Vary-each toggle (Phase 2) — iOS-style switch, sits next to batch stepper */
+.vary-toggle{display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:var(--text-secondary);user-select:none}
+.vary-toggle input{position:absolute;opacity:0;pointer-events:none}
+.vary-toggle .vary-track{position:relative;width:30px;height:16px;background:var(--bg-elev-2);border:1px solid var(--border-soft);border-radius:8px;transition:background .15s ease,border-color .15s ease}
+.vary-toggle .vary-knob{position:absolute;top:1px;left:1px;width:12px;height:12px;background:var(--text-muted);border-radius:50%;transition:transform .18s cubic-bezier(.2,0,0,1),background .15s ease}
+.vary-toggle input:checked ~ .vary-track{background:var(--accent);border-color:var(--accent)}
+.vary-toggle input:checked ~ .vary-track .vary-knob{transform:translateX(14px);background:#fff}
+.vary-toggle input:focus-visible ~ .vary-track{outline:2px solid var(--accent);outline-offset:2px}
+.vary-toggle .vary-label{font-family:"SF Mono",Menlo,monospace;font-size:11px}
+.vary-toggle:hover .vary-label{color:var(--text-primary)}
+.batchbar{margin-top:-8px;margin-bottom:16px;padding:12px 16px;background:var(--bg-elev-1);border:1px solid var(--border-soft);border-radius:var(--radius-md);backdrop-filter:blur(12px);display:none}
+.batchbar.active{display:block}
+/* Phase 4: Resume banner (shows after reload when there's an active job) */
+.resumebar{margin-top:-8px;margin-bottom:16px;padding:12px 16px;background:var(--accent-soft);border:1px solid var(--accent-soft);border-radius:var(--radius-md);backdrop-filter:blur(12px);display:none}
+.resumebar.active{display:block}
+.resumebar .row1{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.resumebar .label{font-size:12px;color:var(--text-primary);display:flex;align-items:center;gap:10px;flex:1;min-width:0}
+.resumebar .label .ico{width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;background:var(--accent-soft);border-radius:50%;color:var(--accent);flex-shrink:0;font-size:11px;font-weight:700}
+.resumebar .label .text{flex:1;min-width:0}
+.resumebar .label .meta{font-family:"SF Mono",Menlo,monospace;font-size:11px;color:var(--text-muted);font-variant-numeric:tabular-nums;flex-shrink:0}
+.resumebar .actions{display:flex;gap:6px;flex-shrink:0}
+.resumebar .actions button{font-size:11px;background:transparent;border:1px solid var(--border-soft);color:var(--text-secondary);padding:5px 12px;border-radius:var(--radius-sm);cursor:pointer;font-family:inherit;transition:background .12s,color .12s,border-color .12s}
+.resumebar .actions button:hover{color:var(--text-primary);background:var(--bg-elev-2)}
+.resumebar .actions .primary{background:var(--accent);color:#0b0d10;border-color:var(--accent);font-weight:600}
+.resumebar .actions .primary:hover{background:#b59aff;color:#0b0d10}
+.resumebar .actions .primary:disabled{opacity:.5;background:var(--accent);cursor:not-allowed}
+.batchbar .row1{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:12px;flex-wrap:wrap}
+.batchbar .row1 .label{font-size:12px;color:var(--text-secondary);display:flex;align-items:center;gap:8px}
+.batchbar .row1 .spinner{width:11px;height:11px;border:1.5px solid var(--accent);border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite;display:inline-block}
+.batchbar .row1 .counter{font-family:"SF Mono",Menlo,monospace;font-size:12px;color:var(--text-primary);font-variant-numeric:tabular-nums}
+.batchbar .row1 .counter .sep{color:var(--text-muted);margin:0 4px}
+.batchbar .row1 .counter .ok{color:var(--success)}
+.batchbar .row1 .counter .err{color:var(--danger)}
+.batchbar .row1 .cancel{font-size:11px;background:transparent;border:1px solid var(--border-soft);color:var(--text-secondary);padding:4px 10px;border-radius:var(--radius-sm);cursor:pointer;font-family:inherit;transition:background .12s,color .12s}
+.batchbar .row1 .cancel:hover{color:var(--text-primary);background:var(--bg-elev-2)}
+.progress{height:6px;background:var(--bg-elev-2);border-radius:999px;overflow:hidden;position:relative}
+.progress .fill{position:absolute;inset:0;width:0%;background:linear-gradient(90deg,var(--accent),#ec4899);border-radius:999px;transition:width .35s cubic-bezier(.2,.0,.0,1)}
+/* ── Phase 6 P3: Skeuomorphic VU meter (8 seg × 2 ch) ── */
+.vu-meter{
+  --vu-level:0;
+  margin-top:10px;
+  padding:8px 10px;
+  background:linear-gradient(180deg,#0a0a0c,#15151a);
+  border:1px solid #000;
+  border-radius:var(--radius-sm);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.04),inset 0 2px 4px rgba(0,0,0,.7),0 1px 0 rgba(255,255,255,.02);
+  display:flex;flex-direction:column;gap:5px;
+}
+.vu-row{display:flex;align-items:center;gap:8px}
+.vu-label{
+  font:600 9px/1 "SF Mono",Menlo,monospace;
+  color:var(--text-muted);width:10px;text-align:center;letter-spacing:.05em;
+}
+.vu-segments{
+  flex:1;display:grid;grid-template-columns:repeat(8,1fr);gap:2px;
+}
+.vu-segments .seg{
+  height:7px;border-radius:1px;
+  background:linear-gradient(180deg,#1c1c20,#0e0e12);
+  box-shadow:inset 0 1px 0 rgba(0,0,0,.8),inset 0 -1px 0 rgba(255,255,255,.03);
+  transition:background .12s,box-shadow .12s;
+}
+.vu-segments .seg.lit{
+  background:linear-gradient(180deg,#86efac 0%,#22c55e 60%,#15803d 100%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.3),inset 0 -1px 0 rgba(0,0,0,.3),0 0 4px rgba(34,197,94,.5);
+}
+.vu-segments .seg.warn.lit{
+  background:linear-gradient(180deg,#fde68a 0%,#facc15 60%,#a16207 100%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.35),inset 0 -1px 0 rgba(0,0,0,.3),0 0 5px rgba(250,204,21,.6);
+}
+.vu-segments .seg.peak.lit{
+  background:linear-gradient(180deg,#fca5a5 0%,#ef4444 60%,#991b1b 100%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.35),inset 0 -1px 0 rgba(0,0,0,.3),0 0 6px rgba(239,68,68,.65);
+}
+/* Idle slow breath: only the first segment blinks softly */
+.vu-meter.idle .vu-segments .seg:nth-child(1){
+  animation:vuBreath 2.6s ease-in-out infinite;
+}
+@keyframes vuBreath{
+  0%,100%{background:linear-gradient(180deg,#1c1c20,#0e0e12);box-shadow:inset 0 1px 0 rgba(0,0,0,.8),inset 0 -1px 0 rgba(255,255,255,.03)}
+  50%{background:linear-gradient(180deg,#86efac 0%,#22c55e 60%,#15803d 100%);box-shadow:inset 0 1px 0 rgba(255,255,255,.3),inset 0 -1px 0 rgba(0,0,0,.3),0 0 4px rgba(34,197,94,.4)}
+}
+/* Active mode: --vu-level controls which segments light up. Set by JS. */
+.vu-meter.active .vu-segments .seg.on{
+  background:linear-gradient(180deg,#86efac 0%,#22c55e 60%,#15803d 100%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.3),inset 0 -1px 0 rgba(0,0,0,.3),0 0 4px rgba(34,197,94,.5);
+}
+.vu-meter.active .vu-segments .seg.on.warn{
+  background:linear-gradient(180deg,#fde68a 0%,#facc15 60%,#a16207 100%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.35),inset 0 -1px 0 rgba(0,0,0,.3),0 0 5px rgba(250,204,21,.6);
+}
+.vu-meter.active .vu-segments .seg.on.peak{
+  background:linear-gradient(180deg,#fca5a5 0%,#ef4444 60%,#991b1b 100%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.35),inset 0 -1px 0 rgba(0,0,0,.3),0 0 6px rgba(239,68,68,.65);
+}
+@media (prefers-reduced-motion:reduce){
+  .vu-meter.idle .vu-segments .seg:nth-child(1){animation:none}
+}
+.batchbar .tasklist{margin-top:10px;display:flex;flex-direction:column;gap:4px;max-height:140px;overflow-y:auto}
+.batchbar .tasklist::-webkit-scrollbar{width:4px}
+.batchbar .tasklist::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:2px}
+.batchbar .tasklist::-webkit-scrollbar-track{background:transparent}
+.batchbar .task{display:grid;grid-template-columns:18px 1fr auto auto;gap:10px;align-items:center;font-size:11.5px;padding:5px 8px;border-radius:var(--radius-sm);cursor:pointer;transition:background .12s}
+.batchbar .task:hover{background:var(--bg-elev-2)}
+.batchbar .task.active{background:var(--accent-soft)}
+.batchbar .task .idx{font-family:"SF Mono",Menlo,monospace;font-size:10.5px;color:var(--text-muted);font-variant-numeric:tabular-nums}
+.batchbar .task .name{color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.batchbar .task .badge{font-family:"SF Mono",Menlo,monospace;font-size:10px;padding:2px 7px;border-radius:999px;background:var(--bg-elev-2);color:var(--text-muted);text-transform:lowercase;letter-spacing:.02em}
+.batchbar .task .badge.queued{background:var(--accent-soft);color:var(--accent)}
+.batchbar .task .badge.running{background:var(--accent-soft);color:var(--accent)}
+.batchbar .task .badge.success{background:var(--success-soft);color:var(--success)}
+.batchbar .task .badge.failed{background:rgba(248,113,113,.12);color:var(--danger)}
+.batchbar .task .mini{width:60px;height:3px;background:var(--bg-elev-2);border-radius:999px;overflow:hidden}
+.batchbar .task .mini .m{height:100%;width:0%;background:var(--accent);border-radius:999px;transition:width .25s ease-out}
+.batchbar .task.success .mini .m{background:var(--success);width:100%}
+.batchbar .task.failed .mini .m{background:var(--danger);width:100%}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:9px 16px;font-size:13px;font-weight:500;border-radius:var(--radius-sm);border:1px solid transparent;cursor:pointer;font-family:inherit;transition:background .12s,transform .06s,opacity .12s}
+.btn:active{transform:translateY(1px) scale(0.96)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-primary{background:#fff;color:#0b0d10}
+.btn-primary:hover:not(:disabled){background:#f4f4f5}
+/* ── Phase 6 P2: Skeuomorphic REC button ── */
+.btn-rec{
+  background:radial-gradient(circle at 35% 30%,#f87171 0%,#dc2626 45%,#991b1b 100%);
+  color:#fff;
+  border:1px solid #7f1d1d;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.35),
+    inset 0 -2px 0 rgba(0,0,0,.25),
+    0 1px 2px rgba(0,0,0,.4),
+    0 4px 10px rgba(220,38,38,.35);
+  text-shadow:0 1px 1px rgba(0,0,0,.4);
+  padding-left:14px;
+}
+.btn-rec:hover:not(:disabled){
+  background:radial-gradient(circle at 35% 30%,#fca5a5 0%,#ef4444 45%,#b91c1c 100%);
+}
+.btn-rec:active:not(:disabled){
+  background:radial-gradient(circle at 50% 60%,#7f1d1d 0%,#991b1b 50%,#dc2626 100%);
+  box-shadow:
+    inset 0 2px 4px rgba(0,0,0,.55),
+    inset 0 -1px 0 rgba(255,255,255,.1),
+    0 1px 1px rgba(0,0,0,.4);
+}
+.btn-rec:focus-visible{outline:2px solid #fca5a5;outline-offset:2px}
+.btn-rec .rec-led{
+  width:10px;height:10px;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,#fecaca 0%,#dc2626 60%,#7f1d1d 100%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.5),inset 0 -1px 0 rgba(0,0,0,.4),0 0 0 rgba(220,38,38,0);
+  flex-shrink:0;
+}
+.btn-rec.recording .rec-led{
+  animation:recPulse 1.05s ease-in-out infinite;
+}
+@keyframes recPulse{
+  0%,100%{
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.5),
+      inset 0 -1px 0 rgba(0,0,0,.4),
+      0 0 0 0 rgba(248,113,113,.7);
+    background:radial-gradient(circle at 35% 30%,#fecaca 0%,#ef4444 60%,#991b1b 100%);
+  }
+  50%{
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.5),
+      inset 0 -1px 0 rgba(0,0,0,.4),
+      0 0 0 8px rgba(248,113,113,0);
+    background:radial-gradient(circle at 35% 30%,#fff 0%,#fca5a5 50%,#dc2626 100%);
+  }
+}
+@media (prefers-reduced-motion:reduce){
+  .btn-rec.recording .rec-led{animation:none}
+}
+.btn-ghost{background:var(--bg-elev-2);color:var(--text-secondary);border-color:var(--border-soft)}
+.btn-ghost:hover:not(:disabled){color:var(--text-primary);background:rgba(255,255,255,.1)}
+.btn-sm{padding:6px 12px;font-size:12px}
+/* ── LLM cards (Phase 1) ─────────────────────────── */
+.badge.llm{color:var(--accent);background:var(--accent-soft);font-weight:500}
+.pill-group{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.pill{display:inline-flex;align-items:center;padding:5px 11px;font-size:12px;border:1px solid var(--border-soft);border-radius:999px;background:var(--bg-elev-1);color:var(--text-secondary);cursor:pointer;user-select:none;transition:background .12s,border-color .12s,color .12s}
+.pill:hover{border-color:var(--border-strong);color:var(--text-primary)}
+
+/* Phase 8 (P7): 生产线 3×3 axis mode */
+.axis-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:4px}
+.axis-block{display:flex;flex-direction:column;gap:6px;padding:10px;background:var(--bg-elev-1);border:1px solid var(--border-soft);border-radius:var(--radius-sm)}
+.axis-label{font-size:11px;font-weight:500;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.5px}
+.axis-mode .pill{padding:4px 10px;font-size:11.5px}
+@media (max-width:680px){.axis-row{grid-template-columns:1fr}}
+/* Phase 8: production card theme field must span full card width,
+   NOT share a 3-col .row with langs/target — otherwise 480px viewport
+   collapses the textarea to 1/3 width and wraps placeholder 1 char/line. */
+.prod-theme-field{grid-column:1/-1}
+.pill.selected{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);font-weight:500}
+.pill-section{margin-top:10px}
+.pill-section-label{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:6px}
+.llm-result{margin-top:14px;padding:12px 14px;background:var(--bg-elev-2);border:1px solid var(--border-soft);border-left:2px solid var(--accent);border-radius:var(--radius-sm)}
+.llm-result-title{font-size:11px;color:var(--text-muted);margin-bottom:8px}
+.llm-result-title em{color:var(--accent);font-style:normal;font-weight:500}
+.llm-result-body{margin:0;padding:10px 12px;background:var(--bg-base);border:1px solid var(--border-soft);border-radius:var(--radius-sm);font-family:"SF Mono",Menlo,monospace;font-size:12px;line-height:1.6;color:var(--text-primary);white-space:pre-wrap;word-break:break-word;max-height:240px;overflow-y:auto}
+.llm-result-body::-webkit-scrollbar{width:4px}
+.llm-result-body::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:2px}
+.llm-result-body::-webkit-scrollbar-track{background:transparent}
+.llm-loading{display:inline-flex;align-items:center;gap:6px;color:var(--text-muted);font-size:12px}
+.llm-loading .spinner{width:12px;height:12px;border-width:2px}
+.preview{background:var(--bg-elev-1);border-left:1px solid var(--border-soft);padding:24px 20px;overflow-y:auto;backdrop-filter:blur(20px)}
+.preview::-webkit-scrollbar{width:4px}
+.preview::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:2px}
+.preview::-webkit-scrollbar-track{background:transparent}
+.preview h2{font-size:13px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between}
+.empty{border:1.5px dashed var(--border-soft);border-radius:var(--radius-md);padding:48px 24px;text-align:center;color:var(--text-muted)}
+.empty .icon{width:40px;height:40px;margin:0 auto 12px;border-radius:12px;background:var(--bg-elev-2);display:grid;place-items:center;color:var(--text-secondary)}
+.empty p{font-size:12.5px;line-height:1.6}
+.result{background:var(--bg-elev-2);border:1px solid var(--border-soft);border-radius:var(--radius-md);padding:16px}
+.result .head{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.result .head .play{width:36px;height:36px;border-radius:50%;background:#fff;color:#0b0d10;display:grid;place-items:center;cursor:pointer;flex-shrink:0}
+.result .head .play.playing{background:var(--accent);color:#fff}
+.result .head .meta{flex:1;min-width:0}
+.result .head .title{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.result .head .sub{font-size:11px;color:var(--text-muted);font-family:"SF Mono",Menlo,monospace;margin-top:2px}
+.result audio{width:100%;margin-top:4px}
+.result .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px;padding-top:14px;border-top:1px solid var(--border-soft)}
+.result .stats .stat{text-align:center}
+.result .stats .stat .k{font-size:10.5px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em}
+.result .stats .stat .v{font-size:12.5px;color:var(--text-primary);font-family:"SF Mono",Menlo,monospace;margin-top:2px}
+.result .links{display:flex;gap:8px;margin-top:12px}
+.result .links a{flex:1;text-align:center;padding:6px 10px;background:var(--bg-elev-1);border:1px solid var(--border-soft);border-radius:var(--radius-sm);color:var(--text-secondary);font-size:11.5px;text-decoration:none;transition:background .12s,color .12s}
+.result .links a:hover{background:var(--bg-elev-2);color:var(--text-primary)}
+.status{margin-top:12px;padding:10px 12px;border-radius:var(--radius-sm);font-size:12px;display:flex;align-items:center;gap:8px;font-family:"SF Mono",Menlo,monospace}
+.status.loading{background:var(--accent-soft);color:var(--accent)}
+.status.success{background:rgba(52,211,153,.1);color:var(--success)}
+.status.error{background:rgba(248,113,113,.1);color:var(--danger)}
+.spinner{width:12px;height:12px;border:1.5px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* Phase 6 P6: staggered card entry — once on first paint, then settles */
+@keyframes cardEnter{
+  from{opacity:0;transform:translateY(6px)}
+  to{opacity:1;transform:translateY(0)}
+}
+.main > .card{animation:cardEnter .42s cubic-bezier(.2,0,.0,1) backwards}
+.main > .card:nth-child(1){animation-delay:0ms}
+.main > .card:nth-child(2){animation-delay:60ms}
+.main > .card:nth-child(3){animation-delay:120ms}
+.main > .card:nth-child(4){animation-delay:180ms}
+.main > .card:nth-child(5){animation-delay:240ms}
+.main > .card:nth-child(6){animation-delay:300ms}
+@media (prefers-reduced-motion:reduce){
+  .main > .card{animation:none}
+}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.tag{font-size:11px;padding:2px 8px;background:var(--bg-elev-2);border:1px solid var(--border-soft);border-radius:999px;color:var(--text-secondary);font-family:"SF Mono",Menlo,monospace;cursor:pointer;transition:background .12s,color .12s}
+.tag:hover{background:var(--accent-soft);color:var(--accent)}
+pre.payload{font-family:"SF Mono",Menlo,monospace;font-size:11.5px;line-height:1.65;color:var(--text-secondary);background:var(--bg-elev-2);padding:12px;border-radius:var(--radius-sm);border:1px solid var(--border-soft);overflow-x:auto;white-space:pre-wrap;word-break:break-all;max-height:280px;overflow-y:auto}
+@media (max-width:1100px){.app{grid-template-columns:200px 1fr 340px}}
+@media (max-width:900px){.app{grid-template-columns:1fr;grid-template-rows:auto auto auto;height:auto}.rail,.preview{border:none;border-bottom:1px solid var(--border-soft)}.preview{border-bottom:none}}
+@media (max-width:640px){.row{grid-template-columns:1fr}.main{padding:20px 16px}}
+
+/* ── Library / History (Phase 3) ─────────────────── */
+.lib-section{margin-top:24px;padding-top:20px;border-top:1px solid var(--border-soft);display:flex;flex-direction:column;gap:10px}
+.lib-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:2px}
+.lib-head h2{font-size:13px;font-weight:600;letter-spacing:-.01em;margin:0;display:flex;align-items:center;gap:6px}
+.lib-count{font-size:11px;color:var(--text-muted);font-family:"SF Mono",Menlo,monospace;font-weight:400}
+.lib-tabs{display:inline-flex;background:var(--bg-elev-2);border:1px solid var(--border-soft);border-radius:999px;padding:2px;gap:2px}
+.lib-tab{background:transparent;border:0;color:var(--text-muted);font-size:11px;font-family:inherit;padding:3px 10px;border-radius:999px;cursor:pointer;transition:background .12s,color .12s}
+.lib-tab:hover{color:var(--text-primary)}
+.lib-tab.selected{background:var(--accent-soft);color:var(--accent)}
+.lib-tab:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.lib-search{position:relative;display:flex;align-items:center;background:var(--bg-elev-2);border:1px solid var(--border-soft);border-radius:var(--radius-sm);padding:0 10px;transition:border-color .12s}
+.lib-search:focus-within{border-color:var(--accent)}
+.lib-search svg{color:var(--text-muted);flex-shrink:0}
+.lib-search input{flex:1;background:transparent;border:0;outline:0;color:var(--text-primary);font-size:12.5px;font-family:inherit;padding:8px 8px 8px 6px}
+.lib-search input::placeholder{color:var(--text-muted)}
+.lib-clear{background:transparent;border:0;color:var(--text-muted);font-size:18px;line-height:1;width:18px;height:18px;display:grid;place-items:center;cursor:pointer;border-radius:50%;padding:0;transition:color .12s,background .12s}
+.lib-clear:hover{color:var(--text-primary);background:var(--bg-elev-1)}
+.lib-list{display:flex;flex-direction:column;gap:4px;max-height:none}
+.lib-item{display:grid;grid-template-columns:18px 1fr auto;gap:8px;align-items:center;padding:8px 10px;background:var(--bg-elev-1);border:1px solid var(--border-soft);border-radius:var(--radius-sm);cursor:pointer;transition:background .12s,border-color .12s,transform .06s}
+.lib-item:hover{background:var(--bg-elev-2);border-color:var(--border-strong)}
+.lib-item:active{transform:translateY(1px)}
+.lib-item .lib-idx{font-family:"SF Mono",Menlo,monospace;font-size:10.5px;color:var(--text-muted);font-variant-numeric:tabular-nums;text-align:center}
+.lib-item .lib-body{min-width:0;display:flex;flex-direction:column;gap:2px}
+.lib-item .lib-title{font-size:12.5px;color:var(--text-primary);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lib-item .lib-sub{font-size:10.5px;color:var(--text-muted);font-family:"SF Mono",Menlo,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;gap:6px;align-items:center}
+.lib-item .lib-sub .dot{color:var(--border-strong)}
+.lib-item .lib-actions{display:inline-flex;align-items:center;gap:2px;opacity:.55;transition:opacity .12s}
+.lib-item:hover .lib-actions,.lib-item:focus-within .lib-actions{opacity:1}
+.lib-item .lib-fav{background:transparent;border:0;cursor:pointer;font-size:14px;line-height:1;width:24px;height:24px;display:grid;place-items:center;border-radius:var(--radius-sm);color:var(--text-muted);transition:color .12s,background .12s;padding:0}
+.lib-item .lib-fav:hover{color:var(--accent);background:var(--accent-soft)}
+.lib-item .lib-fav.on{color:var(--accent)}
+.lib-item .lib-fav:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+/* Phase 14: Library 行内 ▶ 播放按钮 (沿用 .lib-fav 视觉,success 色高亮) */
+.lib-item .lib-play{background:transparent;border:0;cursor:pointer;font-size:11px;line-height:1;width:24px;height:24px;display:grid;place-items:center;border-radius:var(--radius-sm);color:var(--text-muted);transition:color .12s,background .12s;padding:0}
+.lib-item .lib-play:hover{color:var(--success);background:rgba(52,211,153,.1)}
+.lib-item .lib-play:focus-visible{outline:2px solid var(--success);outline-offset:1px}
+.lib-item .lib-del{background:transparent;border:0;cursor:pointer;font-size:13px;line-height:1;width:24px;height:24px;display:grid;place-items:center;border-radius:var(--radius-sm);color:var(--text-muted);transition:color .12s,background .12s;padding:0}
+.lib-item .lib-del:hover{color:var(--danger);background:rgba(248,113,113,.1)}
+.lib-item .lib-del:focus-visible{outline:2px solid var(--danger);outline-offset:1px}
+/* Phase 6 P0: per-track download (audio + lyrics) */
+.lib-item .lib-dl{background:transparent;border:0;cursor:pointer;font-size:13px;line-height:1;width:24px;height:24px;display:grid;place-items:center;border-radius:var(--radius-sm);color:var(--text-muted);transition:color .12s,background .12s;padding:0}
+.lib-item .lib-dl:hover{color:var(--success);background:rgba(52,211,153,.1)}
+.lib-item .lib-dl:focus-visible{outline:2px solid var(--success);outline-offset:1px}
+.lib-item.favorite{border-color:rgba(167,139,250,.3);background:rgba(167,139,250,.05)}
+.lib-item .lib-prompt{font-size:10.5px;color:var(--text-muted);font-family:"SF Mono",Menlo,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.lib-empty{padding:32px 16px;text-align:center;color:var(--text-muted)}
+.lib-empty-icon{width:36px;height:36px;border-radius:10px;background:var(--bg-elev-2);display:grid;place-items:center;margin:0 auto 10px;font-size:16px;color:var(--text-secondary)}
+.lib-empty-text{font-size:12px;line-height:1.7}
+.lib-foot{margin-top:4px;display:flex;justify-content:flex-end}
+.lib-del-all{background:transparent;border:0;color:var(--text-muted);font-size:11px;font-family:inherit;cursor:pointer;padding:4px 8px;border-radius:var(--radius-sm);transition:color .12s,background .12s}
+.lib-del-all:hover{color:var(--danger);background:rgba(248,113,113,.08)}
+.lib-del-all:focus-visible{outline:2px solid var(--danger);outline-offset:1px}
+
+/* Phase 5: retry button + failed state + export buttons */
+.lib-retry{background:transparent;border:1px solid var(--border-soft);cursor:pointer;font-size:12px;line-height:1;width:22px;height:22px;display:grid;place-items:center;border-radius:50%;color:var(--accent);transition:background .12s,border-color .12s,color .12s;padding:0}
+.lib-retry:hover{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.lib-retry:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.lib-item.failed{border-color:rgba(248,113,113,.3);background:rgba(248,113,113,.04)}
+.lib-item.failed .lib-title{color:var(--danger)}
+.lib-item.trashed{opacity:.55;border-style:dashed}
+.lib-item.trashed .lib-title{color:var(--text-muted);text-decoration:line-through}
+.lib-item.trashed .lib-actions{opacity:1}
+.lib-restore,.lib-purge{background:transparent;border:0;cursor:pointer;font-size:14px;line-height:1;width:24px;height:24px;display:grid;place-items:center;border-radius:var(--radius-sm);color:var(--text-muted);transition:color .12s,background .12s;padding:0}
+.lib-restore:hover{color:var(--success);background:rgba(74,222,128,.1)}
+.lib-restore:focus-visible{outline:2px solid var(--success);outline-offset:1px}
+.lib-purge:hover{color:var(--danger);background:rgba(248,113,113,.1)}
+.lib-purge:focus-visible{outline:2px solid var(--danger);outline-offset:1px}
+.lib-export{background:transparent;border:1px solid var(--border-soft);color:var(--text-secondary);padding:5px 10px;border-radius:var(--radius-sm);font:inherit;font-size:11px;cursor:pointer;font-weight:500;margin-left:6px;transition:background .12s,color .12s,border-color .12s}
+.lib-export:hover{color:var(--text-primary);background:var(--bg-elev-2);border-color:var(--accent)}
+.lib-export:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+/* Phase 5 P3: multi-select mode */
+.lib-select-btn{background:transparent;border:1px solid var(--border-soft);color:var(--text-secondary);padding:4px 10px;border-radius:var(--radius-sm);font:inherit;font-size:11px;cursor:pointer;font-weight:500;margin-left:6px;transition:background .12s,color .12s,border-color .12s}
+.lib-select-btn:hover{color:var(--text-primary);background:var(--bg-elev-2);border-color:var(--accent)}
+.lib-select-btn:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.lib-select-bar{display:flex;align-items:center;gap:6px;background:var(--bg-elev-2);border:1px solid var(--border-soft);border-radius:var(--radius-sm);padding:6px 8px;margin-top:6px;font-size:11px;flex-wrap:wrap}
+.lib-select-bar .lib-select-count{color:var(--text-secondary);font-weight:500;margin-right:auto;font-family:"SF Mono",Menlo,monospace;font-size:11px}
+.lib-select-bar button{background:transparent;border:1px solid var(--border-soft);color:var(--text-secondary);padding:3px 8px;border-radius:999px;font:inherit;font-size:11px;cursor:pointer;font-weight:500;transition:background .12s,color .12s,border-color .12s}
+.lib-select-bar button:hover:not(:disabled){color:var(--text-primary);background:var(--bg-elev-2);border-color:var(--accent)}
+.lib-select-bar button:disabled{opacity:.4;cursor:not-allowed}
+.lib-select-bar button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.lib-select-bar .lib-select-cancel{color:var(--text-muted);border-color:transparent}
+.lib-select-bar .lib-select-cancel:hover{color:var(--danger);border-color:transparent;background:transparent}
+.lib-select-bar .lib-select-zip{color:var(--accent);border-color:var(--accent);font-weight:600}
+.lib-item.select-mode{cursor:pointer}
+.lib-item.select-mode .lib-actions{display:none}
+.lib-check{width:18px;height:18px;border:1.5px solid var(--border-strong);border-radius:4px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;background:var(--bg-base);transition:background .12s,border-color .12s;color:var(--text-primary);font-size:12px;line-height:1;font-weight:600}
+.lib-item.select-mode .lib-check{cursor:pointer}
+.lib-check:hover{border-color:var(--accent)}
+.lib-check.checked{background:var(--accent);border-color:var(--accent);color:#0b0d10}
+.lib-item.selected{background:var(--accent-soft)}
+
+/* Phase 3+5 mobile: 480px 以下 actionbar 改 2 行;Generate 拉满;最小 44x44 hit area */
+@media (max-width:480px){
+  .actionbar{padding:12px 14px;gap:10px}
+  .actionbar .left{order:1;width:100%;flex-wrap:wrap;gap:6px 10px;min-height:24px}
+  .actionbar .left > *{min-width:0}
+  .actionbar .right{order:2;width:100%;display:flex;gap:6px}
+  .actionbar .right .btn{flex:1;justify-content:center;min-height:44px}
+  .actionbar .right #btnGenerate{flex:2}
+  .batch .hint{display:none}
+  .lib-list{max-height:340px;overflow-y:auto}
+  .lib-list::-webkit-scrollbar{width:4px}
+  .lib-list::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:2px}
+  .lib-list::-webkit-scrollbar-track{background:transparent}
+  .lib-foot{flex-wrap:wrap;gap:4px;justify-content:flex-end}
+  .lib-foot .lib-export,.lib-foot .lib-del-all,.lib-foot .lib-select-btn{margin-left:0}
+  .lib-select-bar{font-size:10px;padding:5px 6px}
+  .lib-select-bar button{padding:3px 6px;font-size:10px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+<aside class="rail">
+  <div class="rail-brand">
+    <div class="dot"></div>
+    <div><div class="name" data-i18n="nav.brand">Minimax</div><div class="sub" data-i18n="nav.brandSub">Creative Studio</div></div>
+  </div>
+  <div class="rail-section" data-i18n="common.studioSection">Studio</div>
+  <div class="nav-item active">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+    <span data-i18n="nav.music">Music Generation</span>
+  </div>
+  <div class="rail-section" data-i18n="nav.sessions">任务</div>
+  <button type="button" class="nav-item nav-item-action" id="newTaskBtn" data-i18n-attr="aria-label:nav.newTask" aria-label="新建任务">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+    <span data-i18n="nav.newTask">新建任务</span>
+  </button>
+  <div class="tasks-list" id="tasksList" role="list" aria-label="Task history"></div>
+  <div class="tasks-empty" id="tasksEmpty">
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    <span data-i18n="nav.noSessions">暂无任务</span>
+  </div>
+  <button type="button" class="tasks-more" id="tasksMore" style="display:none" data-i18n="nav.task.more">Show more</button>
+  <div class="rail-foot">
+    <a href="https://github.com/snekkenull/minimax-music-studio" target="_blank" rel="noopener noreferrer" class="rail-foot-link" data-i18n-attr="aria-label:attr.aria.githubRepo" aria-label="Open project repository on GitHub (new window)">
+      <svg class="rail-foot-ico" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true" focusable="false">
+        <path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+      </svg>
+      <span data-i18n="nav.github">项目仓库</span>
+    </a>
+  </div>
+</aside>
+
+<main class="main">
+  <header class="page-head">
+    <div>
+      <div class="crumb"><span data-i18n="studio.crumbPrefix">MiniMax Week × GMI Cloud</span></div>
+      <h1 data-i18n="studio.title">Music Generation</h1>
+    </div>
+    <div class="head-actions">
+      <button type="button" class="lang-toggle" id="langToggle" data-i18n-attr="aria-label:attr.aria.langToggle|title:common.language" title="Language">
+        <span class="lang-icon" aria-hidden="true">🌐</span>
+      </button>
+      <button type="button" class="theme-toggle" data-mode="dark" aria-label="Theme: dark" title="Theme: dark">
+        <span class="theme-icon" aria-hidden="true"></span>
+      </button>
+      <div class="chip"><span class="pulse"></span> <span data-i18n="studio.apiOnline">API 在线</span></div>
+      <div class="chip" id="keyStatusChip" style="cursor:pointer" title="点击到 Settings 配置密钥" role="link" tabindex="0" data-i18n-attr="aria-label:attr.aria.openSettings" aria-label="打开 Settings 配置 API Key">
+        <span class="pulse" id="keyChipDot" style="background:var(--warning);box-shadow:0 0 8px var(--warning)"></span>
+        <span id="keyChipText" data-i18n="studio.apiKeyUnconfigured">API Key · 未配置</span>
+      </div>
+      <div class="chip" data-i18n="studio.lyricsLimit">Lyrics · 1–3500 chars</div>
+    </div>
+  </header>
+
+  <!-- Phase 8 (P7): 批量生产线入口 — Theme + 3×3 axis mode + 复用 batch 旋钮 -->
+  <div class="card" id="productionLineCard">
+    <div class="card-title">
+      <h2>
+        <span data-i18n="studio.production.cardTitle">🚀 批量生产线</span>
+        <span class="badge llm" data-i18n="studio.production.cardBadge">T3 · 自动派生 N 角度</span>
+      </h2>
+      <span class="hint" style="font-size:11px;color:var(--text-muted)" data-i18n="studio.production.cardHint">写一个主题,选风格控制,启动后自动派生出 N 首独立作品</span>
+    </div>
+    <div class="field prod-theme-field">
+      <label>
+        <span data-i18n="studio.production.themeLabel">Theme / 主线</span>
+        <span class="hint" data-i18n="studio.production.themeHint">1–2 句话,生产线会从这个主题出发派生 N 个不同角度</span>
+      </label>
+      <textarea id="prodTheme" style="min-height:64px" data-i18n-attr="placeholder:studio.production.themePlaceholder" placeholder="e.g. 雨夜的咖啡馆,两个陌生人在角落对坐"></textarea>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label><span data-i18n="studio.production.languagesLabel">Languages</span></label>
+        <div class="pill-group" id="prodLangPills" data-multi="true">
+          <span class="pill" data-val="en">English</span>
+          <span class="pill selected" data-val="zh">中文</span>
+          <span class="pill" data-val="ja">日本語</span>
+          <span class="pill" data-val="ko">한국어</span>
+          <span class="pill" data-val="es">Español</span>
+        </div>
+      </div>
+      <div class="field" style="max-width:140px">
+        <label><span data-i18n="studio.production.targetLengthLabel">Target length</span> <span class="hint">chars</span></label>
+        <div class="select" data-target="prodTargetLen">
+          <button class="select-trigger" type="button"><span class="label">600</span><span class="caret"></span></button>
+          <div class="select-menu">
+            <div class="opt" data-value="400">400 <span class="meta">short</span></div>
+            <div class="opt selected" data-value="600">600 <span class="meta">medium</span></div>
+            <div class="opt" data-value="900">900 <span class="meta">long</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>
+        <span data-i18n="studio.production.styleControl">风格控制 · 3 轴 × 3 态</span>
+        <span class="hint" data-i18n="studio.production.styleControlHint">每轴选:锁定(用你选)/随机(从此轴随机)/禁用(避开此轴)</span>
+      </label>
+      <div class="axis-row">
+        <div class="axis-block">
+          <div class="axis-label" data-i18n="studio.production.axisGenre">Genre · 风格</div>
+          <div class="pill-group axis-mode" data-axis="genre" data-multi="false">
+            <span class="pill" data-val="locked" data-i18n="studio.production.modeLocked">锁定</span>
+            <span class="pill selected" data-val="random" data-i18n="studio.production.modeRandom">随机</span>
+            <span class="pill" data-val="forbidden" data-i18n="studio.production.modeForbidden">禁用</span>
+          </div>
+        </div>
+        <div class="axis-block">
+          <div class="axis-label" data-i18n="studio.production.axisMood">Mood · 情绪</div>
+          <div class="pill-group axis-mode" data-axis="mood" data-multi="false">
+            <span class="pill" data-val="locked" data-i18n="studio.production.modeLocked">锁定</span>
+            <span class="pill selected" data-val="random" data-i18n="studio.production.modeRandom">随机</span>
+            <span class="pill" data-val="forbidden" data-i18n="studio.production.modeForbidden">禁用</span>
+          </div>
+        </div>
+        <div class="axis-block">
+          <div class="axis-label" data-i18n="studio.production.axisVocal">Vocal · 人声</div>
+          <div class="pill-group axis-mode" data-axis="vocal" data-multi="false">
+            <span class="pill" data-val="locked" data-i18n="studio.production.modeLocked">锁定</span>
+            <span class="pill selected" data-val="random" data-i18n="studio.production.modeRandom">随机</span>
+            <span class="pill" data-val="forbidden" data-i18n="studio.production.modeForbidden">禁用</span>
+          </div>
+        </div>
+      </div>
+      <div class="hint" style="font-size:11px;color:var(--text-muted);margin-top:6px" data-i18n="studio.production.styleHelp">
+        锁定 = 用下面 pill 选;随机 = 复用下面 pill 池;禁用 = 不用此轴 — 下面 3 组 pill 是"可用素材",不直接选
+      </div>
+    </div>
+
+    <div class="actionbar" style="margin-top:12px;padding:0;border:0">
+      <div class="left" style="flex:1;min-width:0">
+        <span class="hint" style="font-size:11px;color:var(--text-muted)" data-i18n="studio.production.summary">数量走顶部 Batch 旋钮 · 启动后 LLM 自动派生 N 角度 + N 组 (lyrics, prompt)</span>
+      </div>
+      <div class="right" style="gap:8px">
+        <button class="btn btn-primary" id="btnProdStart" type="button">
+          <span data-i18n="studio.production.startBtn">开始生产</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" id="lyricsGenCard">
+    <div class="card-title">
+      <h2><span data-i18n="studio.card.lyricsTitle">Lyrics &amp; Title</span> <span class="badge llm" data-i18n="studio.card.llmAuto">LLM · auto-generate</span></h2>
+      <span class="hint" style="font-size:11px;color:var(--text-muted)">optional · leave theme empty to keep manual lyrics</span>
+    </div>
+    <div class="field">
+      <label><span data-i18n="studio.field.theme">Theme / idea</span> <span class="hint" data-i18n="studio.field.themeHint">what the song is about · 1–2 sentences</span></label>
+      <textarea id="llmTheme" style="min-height:56px" data-i18n-attr="placeholder:studio.field.themePlaceholder" placeholder="e.g. a quiet café in the rain, two strangers sharing a table, unspoken longing"></textarea>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label><span data-i18n="studio.field.languages">Languages</span> <span class="hint" data-i18n="studio.field.languagesHint">multi-select</span></label>
+        <div class="pill-group" id="langPills" data-multi="true">
+          <span class="pill" data-val="en">English</span>
+          <span class="pill selected" data-val="zh">中文</span>
+          <span class="pill" data-val="ja">日本語</span>
+          <span class="pill" data-val="ko">한국어</span>
+          <span class="pill" data-val="es">Español</span>
+        </div>
+      </div>
+      <div class="field" style="max-width:140px">
+        <label><span data-i18n="studio.field.targetLength">Target length</span> <span class="hint" data-i18n="studio.field.targetLengthHint">chars</span></label>
+        <div class="select" data-target="llmTargetLen">
+          <button class="select-trigger" type="button"><span class="label">600</span><span class="caret"></span></button>
+          <div class="select-menu">
+            <div class="opt" data-value="400">400 <span class="meta">short</span></div>
+            <div class="opt selected" data-value="600">600 <span class="meta">medium</span></div>
+            <div class="opt" data-value="900">900 <span class="meta">long</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="actionbar" style="margin-top:12px;padding:0;border:0">
+      <div class="left" style="flex:1;min-width:0">
+        <span class="hint" style="font-size:11px;color:var(--text-muted)" data-i18n="studio.llm.outputPackage">1 LLM call returns title + lyrics + prompt together; auto-falls-back if malformed.</span>
+      </div>
+      <div class="right" style="gap:8px">
+        <button class="btn btn-primary" id="btnGenPackage" type="button">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 16.8l-6.2 4.5 2.4-7.4L2 9.4h7.6L12 2z"/></svg>
+          <span data-i18n="studio.btn.generatePackage">Generate</span>
+        </button>
+      </div>
+    </div>
+    <div class="llm-result" id="packageResult" style="display:none">
+      <div class="llm-result-title" data-i18n="studio.llm.draftPackage">Draft · click <em>Apply</em> to send to both Lyrics and Music prompt textareas</div>
+      <div class="field" style="margin:0 0 8px 0">
+        <label><span data-i18n="studio.llm.fieldTitle">歌曲名</span>
+          <span class="hint" data-i18n="studio.llm.fieldTitleHint">可编辑</span></label>
+        <input type="text" id="llmTitle" data-i18n-attr="placeholder:studio.llm.fieldTitlePlaceholder"
+               placeholder="e.g. 雨夜的咖啡馆"
+               autocomplete="off" spellcheck="false" />
+      </div>
+      <pre class="llm-result-body" id="packageResultBody"></pre>
+      <div class="actionbar" style="margin-top:10px;padding:0;border:0">
+        <div class="left" style="flex:1;min-width:0">
+          <span class="badge llm" data-i18n="studio.llm.draftBadge">LLM draft · not yet applied</span>
+        </div>
+        <div class="right" style="gap:6px">
+          <button class="btn btn-ghost btn-sm" id="btnPackageRetry" type="button" data-i18n="studio.btn.retry">Retry</button>
+          <button class="btn btn-primary btn-sm" id="btnPackageApply" type="button" data-i18n="studio.btn.applyToPackage">Apply → 歌名 + 歌词 + 提示词</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">
+      <h2><span data-i18n="studio.card.lyricsPayload">Lyrics</span> <span class="badge" data-i18n="studio.card.lyricsPayloadBadge">payload.lyrics</span></h2>
+      <span class="count" id="lyricsCount">0 / 3500</span>
+    </div>
+    <div class="field" style="margin-bottom:0">
+      <textarea id="lyrics" data-i18n-attr="placeholder:studio.placeholderLyrics" placeholder="[verse]
+Streetlights flicker, the night breeze sighs
+Shadows stretch as I walk alone
+An old coat wraps my silent sorrow
+Wandering, longing, where should I go
+
+[chorus]
+Pushing the wooden door, the aroma spreads
+In a familiar corner, a stranger gazes"></textarea>
+      <div class="tags" id="tagBar">
+        <span class="tag" data-tag="[intro]">+ [intro]</span>
+        <span class="tag" data-tag="[verse]">+ [verse]</span>
+        <span class="tag" data-tag="[pre chorus]">+ [pre chorus]</span>
+        <span class="tag" data-tag="[chorus]">+ [chorus]</span>
+        <span class="tag" data-tag="[bridge]">+ [bridge]</span>
+        <span class="tag" data-tag="[hook]">+ [hook]</span>
+        <span class="tag" data-tag="[inst]">+ [inst]</span>
+        <span class="tag" data-tag="[solo]">+ [solo]</span>
+        <span class="tag" data-tag="[outro]">+ [outro]</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" id="promptGenCard">
+    <div class="card-title">
+      <h2><span data-i18n="studio.card.promptTitle">Music Prompt</span> <span class="badge llm" data-i18n="studio.card.llmAuto">LLM · auto-generate</span></h2>
+      <span class="hint" style="font-size:11px;color:var(--text-muted)">optional · picks from pill tags below</span>
+    </div>
+    <div class="field">
+      <label><span data-i18n="studio.field.mode">Mode</span> <span class="hint" data-i18n="studio.field.modeHint">how to use your locked tags</span></label>
+      <div class="pill-group" id="promptModePills" data-multi="false">
+        <span class="pill selected" data-val="random" title="Ignore locked tags · fresh prompt">Pure random</span>
+        <span class="pill" data-val="locked_random" title="Keep locked tags, fill the rest randomly">Locked + random</span>
+        <span class="pill" data-val="fixed" title="Use exactly the locked tags · no extras">Locked only</span>
+      </div>
+    </div>
+    <div class="field">
+      <label><span data-i18n="studio.field.pillTags">Pill tags</span> <span class="hint" data-i18n="studio.field.pillTagsHint">click to lock · LLM picks from same 36 tags</span></label>
+      <div class="pill-section">
+        <div class="pill-section-label">Genre</div>
+        <div class="pill-group" id="genrePills" data-multi="true">
+          <span class="pill" data-val="Indie folk">Indie folk</span>
+          <span class="pill" data-val="Lo-fi hip hop">Lo-fi hip hop</span>
+          <span class="pill" data-val="Synthwave">Synthwave</span>
+          <span class="pill" data-val="Jazz ballad">Jazz ballad</span>
+          <span class="pill" data-val="Cinematic orchestral">Cinematic orchestral</span>
+          <span class="pill" data-val="City pop">City pop</span>
+          <span class="pill" data-val="Trap">Trap</span>
+          <span class="pill" data-val="Dream pop">Dream pop</span>
+          <span class="pill" data-val="East Asian modern">East Asian modern</span>
+          <span class="pill" data-val="East Asian ballad">East Asian ballad</span>
+          <span class="pill" data-val="Modern R&amp;B">Modern R&amp;B</span>
+          <span class="pill" data-val="Soul and gospel">Soul and gospel</span>
+        </div>
+      </div>
+      <div class="pill-section">
+        <div class="pill-section-label">Mood</div>
+        <div class="pill-group" id="moodPills" data-multi="true">
+          <span class="pill" data-val="melancholic">melancholic</span>
+          <span class="pill" data-val="hopeful">hopeful</span>
+          <span class="pill" data-val="nostalgic">nostalgic</span>
+          <span class="pill" data-val="dreamy">dreamy</span>
+          <span class="pill" data-val="energetic">energetic</span>
+          <span class="pill" data-val="serene">serene</span>
+          <span class="pill" data-val="romantic">romantic</span>
+          <span class="pill" data-val="mysterious">mysterious</span>
+          <span class="pill" data-val="bittersweet">bittersweet</span>
+          <span class="pill" data-val="anthemic">anthemic</span>
+          <span class="pill" data-val="ethereal">ethereal</span>
+          <span class="pill" data-val="noir">noir</span>
+        </div>
+      </div>
+      <div class="pill-section">
+        <div class="pill-section-label">Vocal</div>
+        <div class="pill-group" id="vocalPills" data-multi="true">
+          <span class="pill" data-val="soft female vocal">soft female vocal</span>
+          <span class="pill" data-val="warm male vocal">warm male vocal</span>
+          <span class="pill" data-val="breathy whisper">breathy whisper</span>
+          <span class="pill" data-val="choir ensemble">choir ensemble</span>
+          <span class="pill" data-val="no vocal">no vocal</span>
+          <span class="pill" data-val="raspy alto">raspy alto</span>
+          <span class="pill" data-val="duet">duet</span>
+          <span class="pill" data-val="spoken word">spoken word</span>
+          <span class="pill" data-val="airy soprano">airy soprano</span>
+          <span class="pill" data-val="gritty baritone">gritty baritone</span>
+          <span class="pill" data-val="falsetto">falsetto</span>
+          <span class="pill" data-val="operatic">operatic</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><h2><span data-i18n="studio.card.promptPayload">Style &amp; Audio</span> <span class="badge" data-i18n="studio.card.stylePayload">payload</span></h2></div>
+    <div class="field">
+      <label><span data-i18n="studio.field.musicPrompt">Music prompt</span> <span class="hint" data-i18n="studio.field.musicPromptHint">0–2000 chars · genre, mood, instruments, tempo</span></label>
+      <textarea id="prompt" style="min-height:80px" data-i18n-attr="placeholder:studio.field.musicPromptPlaceholder" placeholder="Indie folk, melancholic, introspective, longing, solitary walk, coffee shop"></textarea>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label><span data-i18n="studio.field.sampleRate">Sample rate</span> <span class="hint" data-i18n="studio.field.sampleRateHint">Hz</span></label>
+        <div class="select" data-target="sampleRate">
+          <button class="select-trigger" type="button"><span class="label">44100</span><span class="caret"></span></button>
+          <div class="select-menu">
+            <div class="opt" data-value="16000">16000 <span class="meta">电话</span></div>
+            <div class="opt" data-value="24000">24000 <span class="meta">语音</span></div>
+            <div class="opt" data-value="32000">32000 <span class="meta">广播</span></div>
+            <div class="opt selected" data-value="44100">44100 <span class="meta">CD · 默认</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="field">
+        <label><span data-i18n="studio.field.bitrate">Bitrate</span> <span class="hint" data-i18n="studio.field.bitrateHint">bps</span></label>
+        <div class="select" data-target="bitrate">
+          <button class="select-trigger" type="button"><span class="label">256000</span><span class="caret"></span></button>
+          <div class="select-menu">
+            <div class="opt" data-value="32000">32000</div>
+            <div class="opt" data-value="64000">64000</div>
+            <div class="opt" data-value="128000">128000</div>
+            <div class="opt selected" data-value="256000">256000 <span class="meta">默认</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="field">
+        <label><span data-i18n="studio.field.format">Format</span> <span class="hint" data-i18n="studio.field.formatHint">output</span></label>
+        <div class="select" data-target="format">
+          <button class="select-trigger" type="button"><span class="label">mp3</span><span class="caret"></span></button>
+          <div class="select-menu">
+            <div class="opt selected" data-value="mp3">mp3 <span class="meta">推荐</span></div>
+            <div class="opt" data-value="wav">wav <span class="meta">无损</span></div>
+            <div class="opt" data-value="pcm">pcm <span class="meta">原始</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="actionbar">
+    <div class="left">
+      <span>Est. cost</span><span class="est" id="cost">~$0.10 / track</span>
+      <span style="color:var(--text-muted)">·</span>
+      <span class="est" id="estTime">~30–60s</span>
+      <span class="batch" data-i18n-attr="title:studio.batch.title" title="单次批量提交的任务数 · 1–100">
+        <span data-i18n="studio.btn.batch">Batch</span>
+        <span class="input" id="batchInputWrap">
+          <input type="number" id="batchInput" min="1" max="100" step="1" value="1"
+                 inputmode="numeric"
+                 data-i18n-attr="aria-label:attr.aria.batchInput|placeholder:studio.batch.placeholder"
+                 aria-label="批量任务数(1–100)" placeholder="1–100" />
+          <span class="unit">/100</span>
+        </span>
+        <span class="hint" id="batchHint">×1</span>
+      </span>
+      <label class="vary-toggle" id="varyToggle" data-i18n-attr="title:studio.btn.varyTitle" title="开启后,每首用 LLM 生成独立的歌词+prompt;关闭则共享下面的 textarea">
+        <input type="checkbox" id="varyToggleInput" />
+        <span class="vary-track">
+          <span class="vary-knob"></span>
+        </span>
+        <span class="vary-label" data-i18n="studio.btn.vary">Vary each</span>
+      </label>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-ghost" id="btnLoad" data-i18n="studio.btn.loadSample">Load sample</button>
+      <button class="btn btn-ghost" id="btnClear" data-i18n="studio.btn.clear">Clear</button>
+      <button class="btn btn-primary btn-rec" id="btnGenerate">
+        <span class="rec-led" aria-hidden="true"></span>
+        <span id="btnGenerateLabel" data-i18n="studio.btn.generate">Generate</span>
+      </button>
+    </div>
+  </div>
+  <div class="batchbar" id="batchbar">
+    <div class="row1">
+      <div class="label">
+        <span class="spinner" id="batchSpinner"></span>
+        <span id="batchStatus" data-i18n="studio.btn.working">Working on batch…</span>
+        <span class="counter" id="batchCounter"></span>
+      </div>
+      <button class="cancel" id="btnCancel" type="button" data-i18n="studio.btn.stop">Stop remaining</button>
+    </div>
+    <div class="progress"><div class="fill" id="batchFill"></div></div>
+    <!-- Phase 6 P3: VU meter (8 segments × 2 channels) -->
+    <div class="vu-meter" id="vuMeter" aria-hidden="true">
+      <div class="vu-row">
+        <span class="vu-label">L</span>
+        <div class="vu-segments" data-channel="L"></div>
+      </div>
+      <div class="vu-row">
+        <span class="vu-label">R</span>
+        <div class="vu-segments" data-channel="R"></div>
+      </div>
+    </div>
+    <div class="tasklist" id="taskMini"></div>
+  </div>
+  <div class="resumebar" id="resumebar">
+    <div class="row1">
+      <div class="label">
+        <span class="ico">↻</span>
+        <span class="text" data-i18n="studio.resume.text">Unfinished batch from previous session</span> — <span id="resumeSummary">—</span>
+        <span class="meta" id="resumeMeta">—</span>
+      </div>
+      <div class="actions">
+        <button type="button" id="btnResumeDiscard" data-i18n="studio.btn.discard">Discard</button>
+        <button type="button" id="btnResumeNow" class="primary" data-i18n="studio.btn.resume">Resume</button>
+      </div>
+    </div>
+  </div>
+  <div id="status"></div>
+</main>
+
+<aside class="preview">
+  <h2><span data-i18n="studio.preview.tracks">Tracks</span> <span style="font-size:11px;color:var(--text-muted);font-family:'SF Mono',monospace" id="previewMeta">—</span></h2>
+  <div id="emptyState" class="empty">
+    <div class="icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+    </div>
+    <p><span data-i18n="studio.preview.empty">批量生成的曲目会出现在这里</span><br><span data-i18n="studio.preview.emptySub">支持播放、下载、查看元数据</span></p>
+  </div>
+  <div id="taskList" style="display:none;flex-direction:column;gap:6px;margin-bottom:14px"></div>
+  <div id="resultBox" style="display:none">
+    <div class="result">
+      <div class="head">
+        <div class="play" id="playBtn">
+          <svg id="playIcon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M5 3l14 9-14 9V3z"/></svg>
+        </div>
+        <div class="meta">
+          <div class="title" id="rTitle">Untitled track</div>
+          <div class="sub" id="rSub">—</div>
+        </div>
+      </div>
+      <audio id="audioEl" controls preload="metadata"></audio>
+      <div id="errorBox" style="display:none;margin-top:12px;padding:10px 12px;border-radius:var(--radius-sm);background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.2);color:var(--danger);font-size:12px;font-family:'SF Mono',Menlo,monospace;line-height:1.6"></div>
+      <div class="stats">
+        <div class="stat"><div class="k" data-i18n="studio.preview.duration">Duration</div><div class="v" id="rDuration">—</div></div>
+        <div class="stat"><div class="k" data-i18n="studio.preview.sample">Sample</div><div class="v" id="rSample">—</div></div>
+        <div class="stat"><div class="k" data-i18n="studio.preview.format">Format</div><div class="v" id="rFormat">—</div></div>
+      </div>
+      <div class="links">
+        <a id="dlBtn" href="#" download data-i18n="studio.preview.download">Download</a>
+        <a id="openBtn" href="#" target="_blank" rel="noopener" data-i18n="studio.preview.open">Open</a>
+        <a id="copyBtn" href="#" data-i18n="studio.preview.copyUrl">Copy URL</a>
+      </div>
+    </div>
+    <div class="card" style="margin-top:16px;margin-bottom:0">
+      <div class="card-title"><h2 data-i18n="studio.preview.payloadTitle">Request payload</h2></div>
+      <pre class="payload" id="payloadView"></pre>
+    </div>
+  </div>
+
+  <!-- Phase 3: History (IDB 持久化 + 搜索 + 收藏) -->
+  <div class="lib-section" id="librarySection">
+    <div class="lib-head">
+      <h2><span data-i18n="library.title">History</span> <span class="lib-count" id="libCount">—</span></h2>
+      <div class="lib-tabs" id="libTabs">
+        <button type="button" class="lib-tab selected" data-filter="all" data-i18n="library.tab.all">All</button>
+        <button type="button" class="lib-tab" data-filter="favorite" data-i18n="library.tab.favorites">★ Favorites</button>
+        <button type="button" class="lib-tab" data-filter="trash" data-i18n="library.tab.trash">🗑 Trash</button>
+      </div>
+    </div>
+    <div class="lib-search">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><line x1="20" y1="20" x2="16.65" y2="16.65"/>
+      </svg>
+      <input type="text" id="libSearch" data-i18n-attr="placeholder:library.searchPlaceholder" placeholder="Search title, lyrics, prompt…" autocomplete="off" />
+      <button type="button" class="lib-clear" id="libSearchClear" title="Clear search" aria-label="Clear search" style="display:none">×</button>
+    </div>
+    <div class="lib-list" id="libList"></div>
+    <div class="lib-empty" id="libEmpty" style="display:none">
+      <div class="lib-empty-icon">♪</div>
+      <div class="lib-empty-text" id="libEmptyText"><span data-i18n="library.empty.title">No saved tracks yet.</span><br><span data-i18n="library.empty.subtitle">Generated tracks will appear here automatically.</span></div>
+    </div>
+    <div class="lib-foot" id="libFoot" style="display:none">
+      <button type="button" class="lib-select-btn" id="libSelectBtn" data-i18n-attr="title:library.btn.select" title="Multi-select tracks" data-i18n="library.btn.select">☐ Select</button>
+      <button type="button" class="lib-export" id="libExportJSON" data-i18n-attr="title:library.btn.exportJSON" title="Export library as JSON" data-i18n="library.btn.exportJSON">↓ JSON</button>
+      <button type="button" class="lib-export" id="libExportCSV"  data-i18n-attr="title:library.btn.exportCSV" title="Export library as CSV" data-i18n="library.btn.exportCSV">↓ CSV</button>
+      <button type="button" class="lib-del-all" id="libDelAll" data-i18n-attr="title:library.btn.clearAll" title="Delete all history" data-i18n="library.btn.clearAll">Clear all</button>
+    </div>
+    <div class="lib-select-bar" id="libSelectBar" style="display:none">
+      <span class="lib-select-count" id="libSelectCount"><span data-i18n="library.select.count">selected</span></span>
+      <button type="button" id="libSelectAll" data-i18n-attr="title:library.select.all" title="Select all visible" data-i18n="library.select.all">All</button>
+      <button type="button" id="libSelectNone" data-i18n-attr="title:library.select.none" title="Clear selection" data-i18n="library.select.none">None</button>
+      <button type="button" id="libSelectZip" data-i18n-attr="title:library.select.zip" title="Download selected as ZIP" disabled data-i18n="library.select.zip">↓ ZIP</button>
+      <button type="button" id="libSelectFav" data-i18n-attr="title:library.select.fav" title="Toggle favorite" disabled data-i18n="library.select.fav">★ Fav</button>
+      <button type="button" id="libSelectDel" data-i18n-attr="title:library.select.del" title="Move selected to trash" disabled data-i18n="library.select.del">🗑</button>
+      <button type="button" class="lib-select-cancel" id="libSelectCancel" data-i18n-attr="title:library.select.cancel" title="Exit select mode" data-i18n="library.select.cancel">✕</button>
+    </div>
+  </div>
+</aside>
+</div>
+
+<!-- Phase 0: 拆分为 5 个 IIFE 模块。加载顺序:core → events → deps(llm/music/job/library) → app -->
+<script src="js/core.js"></script>
+<script src="js/events.js"></script>
+<script src="js/job.js"></script>
+<script src="js/llm.js"></script>
+<script src="lib/idb-keyval.min.js"></script>
+<script src="js/library.js"></script>
+<script src="js/sessions.js"></script>
+<script src="js/music.js"></script>
+<script src="js/jobs-rail.js"></script>
+<script src="js/app.js"></script>
+<script>
+  // Phase 0 smoke test: 打印命名空间 + state + idb readiness
+  window.__phase0 = {
+    ns: () => Object.keys(window.MusicStudio || {}),
+    state: () => window.state,
+    lib: () => !!window.idbKeyVal,
+    debug: () => window.MusicStudio && window.MusicStudio.debug(),
+  };
+  window.addEventListener('error', (e) => {
+    console.error('[phase0:err]', e.message, e.filename + ':' + e.lineno + ':' + e.colno);
+  });
+  window.addEventListener('unhandledrejection', (e) => {
+    console.error('[phase0:reject]', (e.reason && e.reason.message) || e.reason);
+  });
+  console.log('[phase0] NS keys:', Object.keys(window.MusicStudio || {}));
+  console.log('[phase0] idbKeyVal loaded:', !!window.idbKeyVal);
+  console.log('[phase0] state restored:', JSON.stringify({
+    apiKey: !!window.state.apiKey, batchSize: window.state.batchSize,
+    sampleRate: window.state.sampleRate, bitrate: window.state.bitrate, format: window.state.format,
+  }));
+</script>
+</body>
+</html>
