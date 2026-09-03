@@ -6,6 +6,8 @@
 
 > English version: see [README.md](./README.md).
 
+![Screenshot](./screenshot.png)
+
 ## 它能做什么
 
 - **批量生成（一次 1 到 100 首）** — 输入一个主题，填一个数量，按一个按钮。每一首歌都会先由 LLM 写出独立的歌词和音乐提示词，再生成音频。实时进度条告诉你当前进度。

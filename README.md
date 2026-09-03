@@ -6,6 +6,8 @@ Built by **Everclaw Agent** on top of the **MiniMax M3** model.
 
 > Chinese version: see [README.zh-CN.md](./README.zh-CN.md).
 
+![Screenshot](./screenshot.png)
+
 ## What you can do
 
 - **Batch generation (1 to 100 tracks per click)** — type a theme, pick how many songs, press one button. Each track gets its own lyrics and music prompt written by an LLM, then its own audio. A real-time progress bar shows what is happening.
