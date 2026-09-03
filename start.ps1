@@ -128,7 +128,28 @@ $cleanup = {
     Write-Ok "Stopped."
 }
 Register-EngineEvent -SourceIdentifier PowerShell.Exiting -Action $cleanup | Out-Null
-[Console]::TreatAsControlEnabled = $true
+
+# Enable Windows Terminal virtual-terminal sequences when supported.
+# - PowerShell 7+ / .NET 5+ exposes [Console]::TreatAsControlEnabled.
+# - Windows PowerShell 5.1 does not, and assigning to a missing property
+#   throws "The property 'TreatAsControlEnabled' cannot be found on this object.",
+#   which would abort the launcher before proxy.js starts. Treat the feature
+#   as purely cosmetic and skip it on hosts that don't have it.
+#
+# Implementation notes:
+#   * `[Console]::GetType()` itself is not callable on 5.1 because
+#     `[Console]` is a *static* class there — only instances expose
+#     GetType(). We have to resolve the type via GetType -TypeName and
+#     then reflect, which works on both 5.1 and 7+.
+#   * Wrap everything in try/catch so that any other host quirk
+#     (older PSEditions, ConstrainedLanguage mode, etc.) silently
+#     degrades to no-vt mode instead of killing the launcher.
+try {
+    $consoleType = [System.Type]::GetType('System.Console, System.Console', $false)
+    if ($consoleType -and $consoleType.GetProperty('TreatAsControlEnabled')) {
+        try { [Console]::TreatAsControlEnabled = $true } catch { }
+    }
+} catch { }
 
 try {
     $env:PORT = "$Port"
