@@ -18,13 +18,13 @@
     body{background:radial-gradient(1200px 600px at 80% -10%,var(--bg-accent-a-strong),transparent 60%),
       radial-gradient(900px 500px at -10% 110%,var(--bg-accent-b-strong),transparent 60%),var(--bg-base);
       min-height:100vh;display:flex;flex-direction:column}
-    a{color:var(--accent);text-decoration:none;text-underline-offset:2px}
+    a{color:var(--accent);text-decoration:none;text-underline-offset:2px;word-break:break-all;overflow-wrap:anywhere}
     a:hover{color:var(--accent-gradient-end);text-decoration:underline}
     a:visited{color:var(--accent)}
     a:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:2px}
 
     /* Top bar */
-    .topbar{display:flex;align-items:center;justify-content:space-between;
+    .topbar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;row-gap:8px;
       padding:18px 36px;border-bottom:1px solid var(--border-soft);backdrop-filter:blur(20px);
       background:var(--topbar-bg);position:sticky;top:0;z-index:30}
     .topbar .brand{display:flex;align-items:center;gap:10px}
@@ -39,31 +39,34 @@
     .back-link:hover{background:var(--bg-elev-1);color:var(--text-primary);text-decoration:none}
 
     /* Body */
-    .wrap{max-width:760px;width:100%;margin:0 auto;padding:36px 24px 80px;flex:1}
-    .page-head{margin-bottom:28px;padding-bottom:20px;border-bottom:1px solid var(--border-soft)}
+    .wrap{max-width:760px;width:100%;margin:0 auto;padding:36px 24px 80px;flex:1;min-width:0}
+    .page-head{margin-bottom:28px;padding-bottom:20px;border-bottom:1px solid var(--border-soft);min-width:0}
+    .page-head h1{overflow-wrap:anywhere;word-break:break-word}
     .page-head h1{font-size:22px;font-weight:600;letter-spacing:-.02em;margin-bottom:6px}
     .page-head p{font-size:13px;color:var(--text-muted)}
     .page-head code{color:var(--text-secondary);background:var(--bg-elev-2);padding:1px 6px;border-radius:4px;
       font-family:"SF Mono",Menlo,monospace;font-size:11.5px}
 
-    /* Topbar right-side cluster + theme toggle */
-    .topbar-right{display:flex;align-items:center;gap:8px}
+    /* Topbar right-side cluster + theme toggle — ghost button: no background/border
+       by default, hover reveals a soft elev, focus keeps accent ring for a11y. */
+    .topbar-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
     .theme-toggle{
       min-width:32px;min-height:32px;display:inline-flex;align-items:center;justify-content:center;
-      background:var(--bg-elev-1);border:1px solid var(--border-soft);border-radius:8px;
-      cursor:pointer;color:var(--text-secondary);transition:background .12s,color .12s,border-color .12s;
+      background:transparent;border:0;border-radius:6px;
+      cursor:pointer;color:var(--text-secondary);transition:background .12s,color .12s;
       padding:0;
     }
-    .theme-toggle:hover{background:var(--bg-elev-2);color:var(--text-primary);border-color:var(--border-strong)}
+    .theme-toggle:hover{background:var(--bg-elev-2);color:var(--text-primary)}
     .theme-toggle:active{transform:scale(.94)}
-    /* Phase 7 P5: language toggle */
+    /* Phase 7 P5: language toggle — same ghost treatment so both header
+       actions read as a quiet pair. */
     .lang-toggle{
       min-width:32px;min-height:32px;display:inline-flex;align-items:center;justify-content:center;
-      background:var(--bg-elev-1);border:1px solid var(--border-soft);border-radius:8px;
-      cursor:pointer;color:var(--text-secondary);transition:background .12s,color .12s,border-color .12s;
+      background:transparent;border:0;border-radius:6px;
+      cursor:pointer;color:var(--text-secondary);transition:background .12s,color .12s;
       padding:0;font-size:14px;line-height:1;
     }
-    .lang-toggle:hover{background:var(--bg-elev-2);color:var(--text-primary);border-color:var(--border-strong)}
+    .lang-toggle:hover{background:var(--bg-elev-2);color:var(--text-primary)}
     .lang-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
     .lang-toggle:active{transform:scale(.94)}
     /* Phase 28: extend clickable area to 40×40 (desktop dense) / 44×44 (mobile) */

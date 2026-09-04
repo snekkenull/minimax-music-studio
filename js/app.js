@@ -400,6 +400,91 @@
     if (autoHideMs) statusTimer = setTimeout(() => { statusEl.innerHTML = ''; }, autoHideMs);
   }
 
+  /* ─── Phase 32: Download float-toast (右下角堆叠) ────
+   * 规则:
+   *   - 每条下载一条 toast,独立生命周期
+   *   - 垂直堆叠:新的在上(column-reverse)
+   *   - proxy 路径走真 %;瞬时路径(blob 已就绪)跳过 setProgress
+   *   - 失败停留 2400ms 红色,成功停留 600ms 绿色,然后 fade out
+   * ─────────────────────────────────────────────────── */
+  const dlToastStackEl = document.getElementById('dlToastStack');
+  // P32: 走 NS.i18n 兜底,与项目内 i18n 体系一致;i18n.js 的 t() 只接 key 不接 params,
+  //      所以无论 i18n 命中还是 fallback,都强制做一次 {name}/{n}/{msg} 模板替换。
+  function _dlFmt(key, fallback, params) {
+    function _apply(s) {
+      return s && typeof s === 'string'
+        ? s.replace(/\{(\w+)\}/g, (_, k) => (params && params[k] != null ? String(params[k]) : ''))
+        : s;
+    }
+    if (NS.i18n && typeof NS.i18n.t === 'function') {
+      const r = NS.i18n.t(key);
+      if (r && r !== key) return _apply(r);
+    }
+    return _apply(fallback);
+  }
+  let _dlToastSeq = 0;
+  function dlToastCreate(title) {
+    if (!dlToastStackEl) return null;
+    const id = ++_dlToastSeq;
+    const el = document.createElement('div');
+    el.className = 'dl-toast';
+    el.setAttribute('role', 'status');
+    el.dataset.id = String(id);
+    el.innerHTML = `
+      <div class="dl-toast-row">
+        <span class="dl-toast-icon spin" aria-hidden="true"></span>
+        <span class="dl-toast-title"></span>
+        <span class="dl-toast-pct">0%</span>
+      </div>
+      <div class="dl-toast-bar"><div class="dl-toast-bar-fill"></div></div>
+    `;
+    el.querySelector('.dl-toast-title').textContent = title;
+    dlToastStackEl.appendChild(el);
+    requestAnimationFrame(() => el.classList.add('enter'));
+    let removed = false;
+    function _remove(delay) {
+      if (removed) return;
+      removed = true;
+      setTimeout(() => {
+        el.classList.add('removing');
+        setTimeout(() => { el.remove(); }, 220);
+      }, delay);
+    }
+    return {
+      id, el,
+      setTitle(t) { const n = el.querySelector('.dl-toast-title'); if (n) n.textContent = t; },
+      setProgress(pct) {
+        const p = Math.max(0, Math.min(100, Math.round(pct)));
+        const pctEl = el.querySelector('.dl-toast-pct');
+        const fillEl = el.querySelector('.dl-toast-bar-fill');
+        if (pctEl) pctEl.textContent = p + '%';
+        if (fillEl) fillEl.style.width = p + '%';
+      },
+      setDone(msg) {
+        el.classList.add('done');
+        const icon = el.querySelector('.dl-toast-icon');
+        if (icon) { icon.classList.remove('spin'); icon.classList.add('done'); }
+        const pctEl = el.querySelector('.dl-toast-pct');
+        const fillEl = el.querySelector('.dl-toast-bar-fill');
+        if (pctEl) pctEl.textContent = '✓';
+        if (fillEl) fillEl.style.width = '100%';
+        if (msg) { const t = el.querySelector('.dl-toast-title'); if (t) t.textContent = msg; }
+        _remove(600);
+      },
+      setError(msg) {
+        el.classList.add('err');
+        const icon = el.querySelector('.dl-toast-icon');
+        if (icon) { icon.classList.remove('spin'); icon.classList.add('err'); }
+        const pctEl = el.querySelector('.dl-toast-pct');
+        const fillEl = el.querySelector('.dl-toast-bar-fill');
+        if (pctEl) pctEl.textContent = '✕';
+        if (fillEl) fillEl.style.width = '100%';
+        if (msg) { const t = el.querySelector('.dl-toast-title'); if (t) t.textContent = msg; }
+        _remove(2400);
+      }
+    };
+  }
+
   /* ─── Result render ──────────────────────────────── */
   // Phase 9: 切到 task 时释放上一个 task 的 blob URL,避免内存泄漏
   let _currentBlobUrl = null;
@@ -593,13 +678,31 @@
   // would either throw CORS errors or silently open the URL in a new tab
   // instead of saving the file. The Node proxy exposes /api/audio/fetch which
   // streams the remote audio back to us, sidestepping CORS entirely.
-  async function fetchAudioViaProxy(audioUrl) {
+  async function fetchAudioViaProxy(audioUrl, onProgress) {
     const res = await fetch('/api/audio/fetch?url=' + encodeURIComponent(audioUrl));
     if (!res.ok) {
       const errBody = await res.text().catch(() => '');
       throw new Error(`Proxy ${res.status}: ${errBody.slice(0, 120) || res.statusText}`);
     }
-    return res.blob();
+    // P32: 读 Content-Length + getReader 流式累计,给 toast 提供真进度
+    const total = Number(res.headers.get('Content-Length')) || 0;
+    if (!res.body || !total || typeof onProgress !== 'function') {
+      // 退化:无 body / 无 Content-Length / 调用方不要进度 → 旧路径
+      return res.blob();
+    }
+    const reader = res.body.getReader();
+    const chunks = [];
+    let received = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      received += value.byteLength;
+      const pct = Math.min(100, Math.round((received / total) * 100));
+      try { onProgress(pct); } catch (_) { /* 容错 */ }
+    }
+    const ctype = res.headers.get('Content-Type') || 'audio/mpeg';
+    return new Blob(chunks, { type: ctype });
   }
 
   /* ─── Phase 9: Download (dlBtn) — 真正存文件 ─────────── */
@@ -607,6 +710,8 @@
   // 现在: 优先用 task.audioBlob 走 downloadBlob,无 blob 降级到 remote URL
   // (P21)  remote URL 走本地 Node proxy 中转,拿到 blob 后再 downloadBlob
   //        → 绕开 storage.googleapis.com 无 CORS 头的问题。
+  // (P32) 全部下载入口接 dlToast:proxy 路径走真进度,blob/string 瞬时路径
+  //        走 "出现 → 立刻 setDone"。多条并发独立垂直堆叠。
   const dlBtnEl = document.getElementById('dlBtn');
   dlBtnEl?.addEventListener('click', async (e) => {
     e.preventDefault();
@@ -619,7 +724,8 @@
         showStatus('Only completed tracks can be downloaded.', 'error', 2200);
         return;
       }
-      showStatus(`Preparing "${doc.title || libId}"…`, 'loading', 1500);
+      const title = _dlFmt('dlToast.title.download', '下载 {name}', { name: doc.title || libId });
+      const t = dlToastCreate(title);
       try {
         const payload = await lib.exportTrack(libId);
         let count = 0;
@@ -632,12 +738,19 @@
           count++;
         }
         if (count === 0) {
+          if (t) t.setError(_dlFmt('dlToast.error.nothing', 'Nothing to download'));
           showStatus('Nothing to download for this track.', 'error', 2200);
         } else {
           const hasLyrics = payload.lyrics ? ' + lyrics' : '';
+          if (t) {
+            const doneKey = payload.lyrics ? 'dlToast.done.downloadedPlusLyrics' : 'dlToast.done.downloaded';
+            const doneFb  = payload.lyrics ? '已下载 {name} + lyrics' : '已下载 {name}';
+            t.setDone(_dlFmt(doneKey, doneFb, { name: (doc.title || libId) + hasLyrics }));
+          }
           showStatus(`Downloaded ${doc.title || libId}${hasLyrics}.`, 'success', 2200);
         }
       } catch (err) {
+        if (t) t.setError(_dlFmt('dlToast.error.download', '下载失败: {msg}', { msg: (err?.message || err) }));
         showStatus('Download failed: ' + (err?.message || err), 'error', 3000);
       }
       return;
@@ -662,27 +775,35 @@
     const audioName = `${safeBase}-${trackIdx}.${fmt}`;
     const lyricsName = `${safeBase}-${trackIdx}.txt`;
     const lyrics = task.lyrics || state.lyrics || '';
+    const title = _dlFmt('dlToast.title.download', '下载 {name}', { name: audioName });
+    const t = dlToastCreate(title);
 
     if (task.audioBlob) {
+      // 瞬时路径:blob 已在内存,直接 downloadBlob → 立刻 setDone
       downloadBlob(task.audioBlob, audioName, `audio/${fmt}`, false);
     } else if (task.audioUrl) {
-      // P21: 没有本地 blob 时,通过 Node proxy 中转拿 blob
-      // (storage.googleapis.com 没 CORS 头,直接 fetch / <a download> 跨域必失败或开新 tab)
+      // 真进度路径:走 reader + Content-Length
       try {
-        const blob = await fetchAudioViaProxy(task.audioUrl);
+        const blob = await fetchAudioViaProxy(task.audioUrl, (pct) => {
+          if (t) t.setProgress(pct);
+        });
         downloadBlob(blob, audioName, `audio/${fmt}`, false);
       } catch (err) {
+        if (t) t.setError(_dlFmt('dlToast.error.download', '下载失败: {msg}', { msg: (err?.message || err) }));
         showStatus('Audio download failed: ' + (err?.message || err), 'error', 3500);
         return;
       }
     } else {
+      if (t) t.setError(_dlFmt('dlToast.error.noAudio', 'No audio to download'));
       showStatus('No audio to download.', 'error', 2200);
       return;
     }
     if (lyrics) {
       downloadBlob(lyrics, lyricsName, 'text/plain;charset=utf-8', false);
+      if (t) t.setDone(_dlFmt('dlToast.done.downloadedPlusLyrics', '已下载 {name} + lyrics', { name: audioName }));
       showStatus(`Downloaded ${audioName} + lyrics.`, 'success', 2200);
     } else {
+      if (t) t.setDone(_dlFmt('dlToast.done.downloaded', '已下载 {name}', { name: audioName }));
       showStatus(`Downloaded ${audioName}.`, 'success', 2200);
     }
   });
@@ -1791,22 +1912,28 @@
   libExportJSON?.addEventListener('click', async () => {
     const total = state.library.items.length;
     if (!total) { showStatus('Library is empty.', 'error', 2000); return; }
+    const t = dlToastCreate(_dlFmt('dlToast.title.exportJSON', '导出 {n} 首为 JSON', { n: total }));
     try {
       const json = await lib.exportJSON();
       downloadBlob(json, stampName('json'), 'application/json', false);
+      if (t) t.setDone(_dlFmt('dlToast.done.exportedJSON', '已导出 {n} 首为 JSON', { n: total }));
       showStatus(`Exported ${total} track${total > 1 ? 's' : ''} as JSON.`, 'success', 2200);
     } catch (e) {
+      if (t) t.setError(_dlFmt('dlToast.error.export', '导出失败: {msg}', { msg: (e?.message || e) }));
       showStatus('Export failed: ' + (e?.message || e), 'error', 3000);
     }
   });
   libExportCSV?.addEventListener('click', async () => {
     const total = state.library.items.length;
     if (!total) { showStatus('Library is empty.', 'error', 2000); return; }
+    const t = dlToastCreate(_dlFmt('dlToast.title.exportCSV', '导出 {n} 首为 CSV', { n: total }));
     try {
       const csv = await lib.exportCSV();
       downloadBlob(csv, stampName('csv'), 'text/csv;charset=utf-8', true);  // BOM for Excel
+      if (t) t.setDone(_dlFmt('dlToast.done.exportedCSV', '已导出 {n} 首为 CSV', { n: total }));
       showStatus(`Exported ${total} track${total > 1 ? 's' : ''} as CSV.`, 'success', 2200);
     } catch (e) {
+      if (t) t.setError(_dlFmt('dlToast.error.export', '导出失败: {msg}', { msg: (e?.message || e) }));
       showStatus('Export failed: ' + (e?.message || e), 'error', 3000);
     }
   });
@@ -1932,6 +2059,7 @@
         return;
       }
       showStatus(`Preparing "${doc.title || id}"…`, 'loading', 1500);
+      const t = dlToastCreate(_dlFmt('dlToast.title.download', '下载 {name}', { name: doc.title || id }));
       try {
         const payload = await lib.exportTrack(id);
         let count = 0;
@@ -1944,12 +2072,19 @@
           count++;
         }
         if (count === 0) {
+          if (t) t.setError(_dlFmt('dlToast.error.nothing', 'Nothing to download'));
           showStatus('Nothing to download for this track.', 'error', 2200);
         } else {
           const hasLyrics = payload.lyrics ? ' + lyrics' : '';
+          if (t) {
+            const doneKey = payload.lyrics ? 'dlToast.done.downloadedPlusLyrics' : 'dlToast.done.downloaded';
+            const doneFb  = payload.lyrics ? '已下载 {name} + lyrics' : '已下载 {name}';
+            t.setDone(_dlFmt(doneKey, doneFb, { name: (doc.title || id) + hasLyrics }));
+          }
           showStatus(`Downloaded ${doc.title || id}${hasLyrics}.`, 'success', 2200);
         }
       } catch (err) {
+        if (t) t.setError(_dlFmt('dlToast.error.download', '下载失败: {msg}', { msg: (err?.message || err) }));
         showStatus('Download failed: ' + (err?.message || err), 'error', 3000);
       }
       return;
@@ -2056,6 +2191,7 @@
   libSelectZip?.addEventListener('click', async () => {
     const ids = [...state.library.selected];
     if (ids.length === 0) return;
+    const t = dlToastCreate(_dlFmt('dlToast.title.exportZip', '打包 {n} 首为 ZIP', { n: ids.length }));
     showStatus(`Building ZIP (${ids.length} track${ids.length > 1 ? 's' : ''})…`, 'loading', 2000);
     try {
       const blob = await lib.exportZip(ids);
@@ -2065,8 +2201,10 @@
       a.href = url; a.download = fname;
       document.body.appendChild(a); a.click();
       setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 100);
+      if (t) t.setDone(_dlFmt('dlToast.done.exportedZip', '已下载 {n} 首 ZIP', { n: ids.length }));
       showStatus(`Downloaded ${ids.length} track${ids.length > 1 ? 's' : ''} as ZIP.`, 'success', 2500);
     } catch (e) {
+      if (t) t.setError(_dlFmt('dlToast.error.zip', '打包失败: {msg}', { msg: (e?.message || e) }));
       showStatus('ZIP export failed: ' + (e?.message || e), 'error', 3000);
     }
   });
@@ -2292,6 +2430,9 @@
         if (el) el.focus();
       }, 200);
     }
+
+    // Phase 31: 还原 rail fold 状态(LS → DOM class)
+    if (root.RailFold) root.RailFold.init();
   }
 
   if (document.readyState === 'loading') {

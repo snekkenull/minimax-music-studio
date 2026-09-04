@@ -11,7 +11,10 @@
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;background:var(--bg-base);color:var(--text-primary);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",Inter,"PingFang SC","Microsoft YaHei",sans-serif;font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;font-feature-settings:"tnum" 1,"ss01" 1}
 body{background:radial-gradient(1200px 600px at 80% -10%,var(--bg-accent-a-strong),transparent 60%),radial-gradient(900px 500px at -10% 110%,var(--bg-accent-b-strong),transparent 60%),var(--bg-base);min-height:100vh}
-.app{display:grid;grid-template-columns:268px 1fr 360px;height:100vh;min-width:0}
+.app{--rail-l-w:268px;--rail-r-w:360px;display:grid;grid-template-columns:var(--rail-l-w) 1fr var(--rail-r-w);height:100vh;min-width:0}
+/* P31 折叠后中间面板必须扩展:grid 列宽跟随状态(经 :has() 触发) */
+.app:has(.rail.is-folded){--rail-l-w:40px}
+.app:has(.preview.is-folded){--rail-r-w:40px}
 .rail{background:var(--bg-elev-1);border-right:1px solid var(--border-soft);padding:20px 14px;display:flex;flex-direction:column;gap:4px;backdrop-filter:blur(20px)}
 .rail-brand{display:flex;align-items:center;gap:10px;padding:4px 10px 22px;border-bottom:1px solid var(--border-soft);margin-bottom:14px}
 .rail-brand .dot{width:22px;height:22px;border-radius:6px;background:linear-gradient(135deg,var(--accent),var(--accent-gradient-end));box-shadow:0 0 0 1px var(--brand-dot-shadow),0 4px 14px var(--brand-dot-glow)}
@@ -35,7 +38,7 @@ body{background:radial-gradient(1200px 600px at 80% -10%,var(--bg-accent-a-stron
 .tasks-list::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:2px}
 .tasks-list::-webkit-scrollbar-track{background:transparent}
 .tasks-job{display:flex;flex-direction:column}
-.tasks-item{display:flex;align-items:center;gap:5px;padding:5px 6px;border-radius:var(--radius-sm);font-size:11.5px;color:var(--text-secondary);cursor:pointer;transition:background .12s,color .12s;min-width:0-height:28px;position:relative;border:1px solid transparent}
+.tasks-item{display:flex;align-items:center;gap:5px;padding:5px 6px;border-radius:var(--radius-sm);font-size:11.5px;color:var(--text-secondary);cursor:pointer;transition:background .12s,color .12s;min-width:0;min-height:28px;position:relative;border:1px solid transparent}
 .tasks-item:hover{background:var(--bg-elev-1);color:var(--text-primary)}
 .tasks-item:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .tasks-item.expanded{background:var(--bg-elev-1);color:var(--text-primary)}
@@ -90,40 +93,47 @@ body{background:radial-gradient(1200px 600px at 80% -10%,var(--bg-accent-a-stron
 .rail-foot-ico{opacity:.7;transition:opacity .12s}
 .rail-foot-link:hover .rail-foot-ico{opacity:1}
 /* Phase 27: ensure <a> tags injected by i18n extLink() are visible & AA-compliant */
-a{color:var(--accent);text-decoration:none;text-underline-offset:2px}
+a{color:var(--accent);text-decoration:none;text-underline-offset:2px;word-break:break-all;overflow-wrap:anywhere}
 a:hover{color:var(--accent-gradient-end);text-decoration:underline}
 a:visited{color:var(--accent)}
 a:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:2px}
 .llm-result a,.crumb a,.hint a,.field p a{text-decoration:underline}
-.main{overflow-y:auto;padding:28px 36px 40px}
+.main{overflow-y:auto;padding:28px 36px 40px;min-width:0}
 .main::-webkit-scrollbar{width:4px}
 .main::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:2px}
 .main::-webkit-scrollbar-track{background:transparent}
-.page-head{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:28px;padding-bottom:20px;border-bottom:1px solid var(--border-soft)}
+.page-head{display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:12px;row-gap:12px;margin-bottom:28px;padding-bottom:20px;border-bottom:1px solid var(--border-soft)}
 .page-head h1{font-size:22px;font-weight:600;letter-spacing:-.02em}
 .page-head .crumb{font-size:12px;color:var(--text-muted);margin-bottom:6px}
 .page-head .crumb code{color:var(--text-secondary);background:var(--bg-elev-2);padding:1px 6px;border-radius:4px;font-family:"SF Mono",Menlo,monospace;font-size:11px}
-.head-actions{display:flex;gap:8px;align-items:center}
-.chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;font-size:11px;background:var(--bg-elev-2);border:1px solid var(--border-soft);border-radius:999px;color:var(--text-secondary)}
+.head-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;min-width:0}
+.page-head h1,.page-head > div:first-child{flex:1 1 auto;min-width:0}
+.head-actions{flex-shrink:1}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;font-size:11px;background:var(--bg-elev-2);border:1px solid var(--border-soft);border-radius:999px;color:var(--text-secondary);min-width:0;max-width:100%;overflow:hidden}
+.chip > span,.chip > .pulse{white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
+.chip > .pulse{flex-shrink:0}
 .chip .pulse{width:6px;height:6px;border-radius:50%;background:var(--success);box-shadow:0 0 8px var(--success)}
 
-    /* Theme toggle (P4) */
+    /* Theme toggle (P4) — ghost button: no background/border by default,
+       hover reveals a soft elev, focus keeps accent ring for a11y. */
     .theme-toggle{
       min-width:32px;min-height:32px;display:inline-flex;align-items:center;justify-content:center;
-      background:var(--bg-elev-2);border:1px solid var(--border-soft);border-radius:8px;
-      cursor:pointer;color:var(--text-secondary);transition:background .12s,color .12s,border-color .12s;
+      background:transparent;border:0;border-radius:6px;
+      cursor:pointer;color:var(--text-secondary);transition:background .12s,color .12s;
       padding:0;
     }
-    .theme-toggle:hover{background:var(--bg-elev-1);color:var(--text-primary);border-color:var(--border-strong)}
+    .theme-toggle:hover{background:var(--bg-elev-2);color:var(--text-primary)}
+    .theme-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
     .theme-toggle:active{transform:scale(.94)}
-    /* Phase 7 P5: language toggle — sits next to the theme button, mirrors its shape */
+    /* Phase 7 P5: language toggle — sits next to the theme button, mirrors its shape.
+       Same ghost treatment so both header actions read as a quiet pair. */
     .lang-toggle{
       min-width:32px;min-height:32px;display:inline-flex;align-items:center;justify-content:center;
-      background:var(--bg-elev-2);border:1px solid var(--border-soft);border-radius:8px;
-      cursor:pointer;color:var(--text-secondary);transition:background .12s,color .12s,border-color .12s;
+      background:transparent;border:0;border-radius:6px;
+      cursor:pointer;color:var(--text-secondary);transition:background .12s,color .12s;
       padding:0;font-size:14px;line-height:1;
     }
-    .lang-toggle:hover{background:var(--bg-elev-1);color:var(--text-primary);border-color:var(--border-strong)}
+    .lang-toggle:hover{background:var(--bg-elev-2);color:var(--text-primary)}
     .lang-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
     .lang-toggle:active{transform:scale(.94)}
     /* Phase 28: extend clickable area to 40×40 (desktop dense) / 44×44 (mobile).
@@ -428,6 +438,149 @@ a:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius
 .preview::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:2px}
 .preview::-webkit-scrollbar-track{background:transparent}
 .preview h2{font-size:13px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between}
+
+/* === Phase 31: rail fold (左 .rail + 右 .preview) ===================== */
+.rail, .preview { position: relative; }
+
+/* Phase 31-fix: 每栏独立 .rail-head 块,sticky 顶部,装标题 + fold 按钮 */
+.rail-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 10px 10px 12px;
+  border-bottom: 1px solid var(--border-soft);
+  position: sticky; top: 0;
+  background: var(--bg-base);
+  z-index: 4;
+  min-height: 44px;
+}
+.preview > .rail-head { padding-left: 10px; }
+.rail-head h2 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.preview > .rail-head h2 { order: 2; flex: 1 1 auto; }  /* preview: h2 在按钮右边 */
+
+.rail-fold-btn {
+  flex-shrink: 0;
+  z-index: 5;
+  width: 28px; height: 28px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent; border: 1px solid transparent;
+  color: var(--text-muted);
+  border-radius: 6px; cursor: pointer;
+  transition: background 120ms, color 120ms;
+}
+.rail-fold-btn:hover { background: var(--bg-elev-2); color: var(--text); }
+.rail-fold-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.rail-fold-btn .icon { display: block; }
+.rail-fold-btn .icon-close { display: none; }
+
+.rail-restore-btn {
+  position: absolute; bottom: 8px; left: 50%;
+  transform: translateX(-50%);
+  width: 28px; height: 28px;
+  display: none;
+  align-items: center; justify-content: center;
+  background: transparent; border: 1px solid var(--border-soft);
+  color: var(--text-muted);
+  border-radius: 6px; cursor: pointer;
+  transition: background 120ms, color 120ms, border-color 120ms;
+  z-index: 5;
+}
+.rail-restore-btn:hover { color: var(--text); border-color: var(--text-muted); }
+.rail-restore-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* 折叠态:body 隐藏,图标切换,border 弱化,padding 收回。列宽由 .app 的 :has() 规则收为 40px */
+.rail.is-folded, .preview.is-folded { min-width: 40px; padding: 0; overflow: hidden; }
+.rail.is-folded { border-right-color: transparent; }
+.preview.is-folded { border-left-color: transparent; }
+/* P31-fix5: .rail-body 必须是 flex column,让 .rail-foot 的 margin-top:auto
+   重新生效把它推到底(原本 .rail-foot 是 .rail 的直接子元素,
+   P31 引入 .rail-body 包装后 .rail-foot 变成 .rail-body 子元素,
+   .rail-body 没设 display:flex 导致 margin-top:auto 失效 → foot
+   紧跟在 .tasks-empty 后面看起来像 task)。左右两 rail 复用此规则。*/
+.rail-body{display:flex;flex-direction:column;flex:1 1 auto;min-height:0}
+.rail.is-folded .rail-body,
+.preview.is-folded .rail-body { display: none; }
+.rail.is-folded .rail-restore-btn,
+.preview.is-folded .rail-restore-btn { display: inline-flex; }
+.rail.is-folded .rail-fold-btn .icon-open,
+.preview.is-folded .rail-fold-btn .icon-open  { display: none; }
+.rail.is-folded .rail-fold-btn .icon-close,
+.preview.is-folded .rail-fold-btn .icon-close { display: block; }
+/* Phase 31-fix: 折叠态 head 居中,h2 隐藏 */
+.rail.is-folded > .rail-head h2,
+.preview.is-folded > .rail-head h2 { display: none; }
+.rail.is-folded > .rail-head,
+.preview.is-folded > .rail-head { justify-content: center; padding: 6px 0; min-height: 40px; }
+
+/* 移动端 hit area 略放大(P28 规范) */
+@media (max-width: 480px) {
+  .rail-fold-btn, .rail-restore-btn { width: 32px; height: 32px; }
+  .rail-head { padding: 8px 8px 8px 10px; }
+}
+/* === /Phase 31-fix =========================================================== */
+/* === Phase 32: Download float-toast =========================== */
+#dlToastStack {
+  position: fixed; right: 20px; bottom: 20px;
+  display: flex; flex-direction: column-reverse; gap: 10px;
+  z-index: 1000; pointer-events: none;
+  max-width: 360px;
+}
+.dl-toast {
+  pointer-events: auto;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  padding: 12px 14px;
+  min-width: 260px; max-width: 360px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.32), 0 1px 2px rgba(0,0,0,.18);
+  color: var(--text);
+  font-size: 13px; line-height: 1.4;
+  display: flex; flex-direction: column; gap: 8px;
+  opacity: 0; transform: translateY(8px) scale(.98);
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+.dl-toast.enter { opacity: 1; transform: translateY(0) scale(1); }
+.dl-toast.removing { opacity: 0; transform: translateY(-4px) scale(.98); }
+.dl-toast .dl-toast-row { display: flex; align-items: center; gap: 10px; }
+.dl-toast .dl-toast-icon {
+  width: 16px; height: 16px; flex: none; border-radius: 50%;
+}
+.dl-toast .dl-toast-icon.spin {
+  border: 2px solid var(--border-soft);
+  border-top-color: var(--accent);
+  animation: dl-spin 720ms linear infinite;
+  box-sizing: border-box;
+}
+.dl-toast .dl-toast-icon.done { background: var(--success); }
+.dl-toast .dl-toast-icon.err  { background: var(--danger); }
+@keyframes dl-spin { to { transform: rotate(360deg); } }
+.dl-toast .dl-toast-title { font-weight: 500; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dl-toast .dl-toast-pct {
+  margin-left: auto; color: var(--text-secondary);
+  font-variant-numeric: tabular-nums; flex: none;
+}
+.dl-toast .dl-toast-bar {
+  height: 4px; background: var(--bg-base);
+  border-radius: 2px; overflow: hidden;
+}
+.dl-toast .dl-toast-bar-fill {
+  height: 100%; background: var(--accent);
+  width: 0%;
+  transition: width 120ms linear;
+}
+.dl-toast.done .dl-toast-bar-fill { background: var(--success); transition: width 200ms ease; }
+.dl-toast.err  .dl-toast-bar-fill { background: var(--danger);  transition: width 200ms ease; }
+@media (max-width: 480px) {
+  #dlToastStack { right: 12px; bottom: 12px; max-width: calc(100vw - 24px); }
+}
+/* === /Phase 32 ================================================= */
+
 .empty{border:1.5px dashed var(--border-soft);border-radius:var(--radius-md);padding:48px 24px;text-align:center;color:var(--text-muted)}
 .empty .icon{width:40px;height:40px;margin:0 auto 12px;border-radius:12px;background:var(--bg-elev-2);display:grid;place-items:center;color:var(--text-secondary)}
 .empty p{font-size:12.5px;line-height:1.6}
@@ -471,9 +624,9 @@ a:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius
 .tag{font-size:11px;padding:2px 8px;background:var(--bg-elev-2);border:1px solid var(--border-soft);border-radius:999px;color:var(--text-secondary);font-family:"SF Mono",Menlo,monospace;cursor:pointer;transition:background .12s,color .12s}
 .tag:hover{background:var(--accent-soft);color:var(--accent)}
 pre.payload{font-family:"SF Mono",Menlo,monospace;font-size:11.5px;line-height:1.65;color:var(--text-secondary);background:var(--bg-elev-2);padding:12px;border-radius:var(--radius-sm);border:1px solid var(--border-soft);overflow-x:auto;white-space:pre-wrap;word-break:break-all;max-height:280px;overflow-y:auto}
-@media (max-width:1100px){.app{grid-template-columns:200px 1fr 340px}}
-@media (max-width:900px){.app{grid-template-columns:1fr;grid-template-rows:auto auto auto;height:auto}.rail,.preview{border:none;border-bottom:1px solid var(--border-soft)}.preview{border-bottom:none}}
-@media (max-width:640px){.row{grid-template-columns:1fr}.main{padding:20px 16px}}
+@media (max-width:1100px){.app{--rail-l-w:200px;--rail-r-w:340px}}
+@media (max-width:900px){.app{grid-template-columns:1fr;grid-template-rows:auto auto auto;height:auto}.rail,.preview{border:none;border-bottom:1px solid var(--border-soft)}.preview{border-bottom:none}.tasks-list{min-height:240px}}
+@media (max-width:640px){.row{grid-template-columns:1fr}.main{padding:20px 16px}.actionbar{padding:12px 14px;gap:10px}.actionbar .left{flex-wrap:wrap;min-height:32px;gap:6px 10px}.actionbar .right{gap:6px}}
 
 /* ── Library / History (Phase 3) ─────────────────── */
 .lib-section{margin-top:24px;padding-top:20px;border-top:1px solid var(--border-soft);display:flex;flex-direction:column;gap:10px}
@@ -588,35 +741,55 @@ pre.payload{font-family:"SF Mono",Menlo,monospace;font-size:11.5px;line-height:1
 </head>
 <body>
 <div class="app">
-<aside class="rail">
-  <div class="rail-brand">
-    <div class="dot"></div>
-    <div><div class="name" data-i18n="nav.brand">Minimax</div><div class="sub" data-i18n="nav.brandSub">Creative Studio</div></div>
-  </div>
-  <div class="rail-section" data-i18n="common.studioSection">Studio</div>
-  <div class="nav-item active">
-    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-    <span data-i18n="nav.music">Music Generation</span>
-  </div>
-  <div class="rail-section" data-i18n="nav.sessions">任务</div>
-  <button type="button" class="nav-item nav-item-action" id="newTaskBtn" data-i18n-attr="aria-label:nav.newTask" aria-label="新建任务">
-    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-    <span data-i18n="nav.newTask">新建任务</span>
-  </button>
-  <div class="tasks-list" id="tasksList" role="list" aria-label="Task history"></div>
-  <div class="tasks-empty" id="tasksEmpty">
-    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-    <span data-i18n="nav.noSessions">暂无任务</span>
-  </div>
-  <button type="button" class="tasks-more" id="tasksMore" style="display:none" data-i18n="nav.task.more">Show more</button>
-  <div class="rail-foot">
-    <a href="https://github.com/snekkenull/minimax-music-studio" target="_blank" rel="noopener noreferrer" class="rail-foot-link" data-i18n-attr="aria-label:attr.aria.githubRepo" aria-label="Open project repository on GitHub (new window)">
-      <svg class="rail-foot-ico" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true" focusable="false">
-        <path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+<aside class="rail" data-rail="jobs">
+  <div class="rail-head">
+    <h2 data-i18n="rail.head.jobs">任务</h2>
+    <button type="button" class="rail-fold-btn" data-fold="jobs" data-i18n-attr="aria-label:rail.foldAria" aria-label="折叠导航/任务列" aria-expanded="true">
+      <svg class="icon icon-open" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polyline points="15 6 9 12 15 18"/>
       </svg>
-      <span data-i18n="nav.github">项目仓库</span>
-    </a>
+      <svg class="icon icon-close" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+        <line x1="4" y1="7"  x2="20" y2="7"/>
+        <line x1="4" y1="12" x2="20" y2="12"/>
+        <line x1="4" y1="17" x2="20" y2="17"/>
+      </svg>
+    </button>
   </div>
+  <div class="rail-body">
+    <div class="rail-brand">
+      <div class="dot"></div>
+      <div><div class="name" data-i18n="nav.brand">Minimax</div><div class="sub" data-i18n="nav.brandSub">Creative Studio</div></div>
+    </div>
+    <div class="rail-section" data-i18n="common.studioSection">Studio</div>
+    <div class="nav-item active">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+      <span data-i18n="nav.music">Music Generation</span>
+    </div>
+    <div class="rail-section" data-i18n="nav.sessions">任务</div>
+    <button type="button" class="nav-item nav-item-action" id="newTaskBtn" data-i18n-attr="aria-label:nav.newTask" aria-label="新建任务">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+      <span data-i18n="nav.newTask">新建任务</span>
+    </button>
+    <div class="tasks-list" id="tasksList" role="list" aria-label="Task history"></div>
+    <div class="tasks-empty" id="tasksEmpty">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      <span data-i18n="nav.noSessions">暂无任务</span>
+    </div>
+    <button type="button" class="tasks-more" id="tasksMore" style="display:none" data-i18n="nav.task.more">Show more</button>
+    <div class="rail-foot">
+      <a href="https://github.com/snekkenull/minimax-music-studio" target="_blank" rel="noopener noreferrer" class="rail-foot-link" data-i18n-attr="aria-label:attr.aria.githubRepo" aria-label="Open project repository on GitHub (new window)">
+        <svg class="rail-foot-ico" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true" focusable="false">
+          <path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+        </svg>
+        <span data-i18n="nav.github">项目仓库</span>
+      </a>
+    </div>
+  </div>
+  <button type="button" class="rail-restore-btn" data-restore="jobs" data-i18n-attr="aria-label:rail.restoreAria" aria-label="展开导航/任务列" aria-hidden="true">
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <polyline points="9 6 15 12 9 18"/>
+    </svg>
+  </button>
 </aside>
 
 <main class="main">
@@ -718,7 +891,7 @@ pre.payload{font-family:"SF Mono",Menlo,monospace;font-size:11.5px;line-height:1
     </div>
 
     <div class="actionbar" style="margin-top:12px;padding:0;border:0">
-      <div class="left" style="flex:1;min-width:0">
+      <div class="left" style="flex:1;min-width:0;padding-left:12px">
         <span class="hint" style="font-size:11px;color:var(--text-muted)" data-i18n="studio.production.summary">数量走顶部 Batch 旋钮 · 启动后 LLM 自动派生 N 角度 + N 组 (lyrics, prompt)</span>
       </div>
       <div class="right" style="gap:8px">
@@ -762,7 +935,7 @@ pre.payload{font-family:"SF Mono",Menlo,monospace;font-size:11.5px;line-height:1
       </div>
     </div>
     <div class="actionbar" style="margin-top:12px;padding:0;border:0">
-      <div class="left" style="flex:1;min-width:0">
+      <div class="left" style="flex:1;min-width:0;padding-left:12px">
         <span class="hint" style="font-size:11px;color:var(--text-muted)" data-i18n="studio.llm.outputPackage">1 LLM call returns title + lyrics + prompt together; auto-falls-back if malformed.</span>
       </div>
       <div class="right" style="gap:8px">
@@ -1007,85 +1180,105 @@ In a familiar corner, a stranger gazes"></textarea>
     </div>
   </div>
   <div id="status"></div>
+  <div id="dlToastStack" aria-live="polite" aria-atomic="false"></div>
 </main>
 
-<aside class="preview">
-  <h2><span data-i18n="studio.preview.tracks">Tracks</span> <span style="font-size:11px;color:var(--text-muted);font-family:'SF Mono',monospace" id="previewMeta">—</span></h2>
-  <div id="emptyState" class="empty">
-    <div class="icon">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-    </div>
-    <p><span data-i18n="studio.preview.empty">批量生成的曲目会出现在这里</span><br><span data-i18n="studio.preview.emptySub">支持播放、下载、查看元数据</span></p>
-  </div>
-  <div id="taskList" style="display:none;flex-direction:column;gap:6px;margin-bottom:14px"></div>
-  <div id="resultBox" style="display:none">
-    <div class="result">
-      <div class="head">
-        <div class="play" id="playBtn">
-          <svg id="playIcon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M5 3l14 9-14 9V3z"/></svg>
-        </div>
-        <div class="meta">
-          <div class="title" id="rTitle">Untitled track</div>
-          <div class="sub" id="rSub">—</div>
-        </div>
-      </div>
-      <audio id="audioEl" controls preload="metadata"></audio>
-      <div id="errorBox" style="display:none;margin-top:12px;padding:10px 12px;border-radius:var(--radius-sm);background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.2);color:var(--danger);font-size:12px;font-family:'SF Mono',Menlo,monospace;line-height:1.6"></div>
-      <div class="stats">
-        <div class="stat"><div class="k" data-i18n="studio.preview.duration">Duration</div><div class="v" id="rDuration">—</div></div>
-        <div class="stat"><div class="k" data-i18n="studio.preview.sample">Sample</div><div class="v" id="rSample">—</div></div>
-        <div class="stat"><div class="k" data-i18n="studio.preview.format">Format</div><div class="v" id="rFormat">—</div></div>
-      </div>
-      <div class="links">
-        <a id="dlBtn" href="#" download data-i18n="studio.preview.download">Download</a>
-        <a id="openBtn" href="#" target="_blank" rel="noopener" data-i18n="studio.preview.open">Open</a>
-        <a id="copyBtn" href="#" data-i18n="studio.preview.copyUrl">Copy URL</a>
-      </div>
-    </div>
-    <div class="card" style="margin-top:16px;margin-bottom:0">
-      <div class="card-title"><h2 data-i18n="studio.preview.payloadTitle">Request payload</h2></div>
-      <pre class="payload" id="payloadView"></pre>
-    </div>
-  </div>
-
-  <!-- Phase 3: History (IDB 持久化 + 搜索 + 收藏) -->
-  <div class="lib-section" id="librarySection">
-    <div class="lib-head">
-      <h2><span data-i18n="library.title">History</span> <span class="lib-count" id="libCount">—</span></h2>
-      <div class="lib-tabs" id="libTabs">
-        <button type="button" class="lib-tab selected" data-filter="all" data-i18n="library.tab.all">All</button>
-        <button type="button" class="lib-tab" data-filter="favorite" data-i18n="library.tab.favorites">★ Favorites</button>
-        <button type="button" class="lib-tab" data-filter="trash" data-i18n="library.tab.trash">🗑 Trash</button>
-      </div>
-    </div>
-    <div class="lib-search">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-        <circle cx="11" cy="11" r="7"/><line x1="20" y1="20" x2="16.65" y2="16.65"/>
+<aside class="preview" data-rail="preview">
+  <div class="rail-head">
+    <button type="button" class="rail-fold-btn" data-fold="preview" data-i18n-attr="aria-label:rail.foldAria" aria-label="折叠预览/历史列" aria-expanded="true">
+      <svg class="icon icon-open" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polyline points="9 18 15 12 9 6"/>
       </svg>
-      <input type="text" id="libSearch" data-i18n-attr="placeholder:library.searchPlaceholder" placeholder="Search title, lyrics, prompt…" autocomplete="off" />
-      <button type="button" class="lib-clear" id="libSearchClear" title="Clear search" aria-label="Clear search" style="display:none">×</button>
+      <svg class="icon icon-close" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+        <line x1="4" y1="7"  x2="20" y2="7"/>
+        <line x1="4" y1="12" x2="20" y2="12"/>
+        <line x1="4" y1="17" x2="20" y2="17"/>
+      </svg>
+    </button>
+    <h2><span data-i18n="studio.preview.tracks">Tracks</span> <span style="font-size:11px;color:var(--text-muted);font-family:'SF Mono',monospace" id="previewMeta">—</span></h2>
+  </div>
+  <div class="rail-body">
+    <div id="emptyState" class="empty">
+      <div class="icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+      </div>
+      <p><span data-i18n="studio.preview.empty">批量生成的曲目会出现在这里</span><br><span data-i18n="studio.preview.emptySub">支持播放、下载、查看元数据</span></p>
     </div>
-    <div class="lib-list" id="libList"></div>
-    <div class="lib-empty" id="libEmpty" style="display:none">
-      <div class="lib-empty-icon">♪</div>
-      <div class="lib-empty-text" id="libEmptyText"><span data-i18n="library.empty.title">No saved tracks yet.</span><br><span data-i18n="library.empty.subtitle">Generated tracks will appear here automatically.</span></div>
+    <div id="taskList" style="display:none;flex-direction:column;gap:6px;margin-bottom:14px"></div>
+    <div id="resultBox" style="display:none">
+      <div class="result">
+        <div class="head">
+          <div class="play" id="playBtn">
+            <svg id="playIcon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M5 3l14 9-14 9V3z"/></svg>
+          </div>
+          <div class="meta">
+            <div class="title" id="rTitle">Untitled track</div>
+            <div class="sub" id="rSub">—</div>
+          </div>
+        </div>
+        <audio id="audioEl" controls preload="metadata"></audio>
+        <div id="errorBox" style="display:none;margin-top:12px;padding:10px 12px;border-radius:var(--radius-sm);background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.2);color:var(--danger);font-size:12px;font-family:'SF Mono',Menlo,monospace;line-height:1.6"></div>
+        <div class="stats">
+          <div class="stat"><div class="k" data-i18n="studio.preview.duration">Duration</div><div class="v" id="rDuration">—</div></div>
+          <div class="stat"><div class="k" data-i18n="studio.preview.sample">Sample</div><div class="v" id="rSample">—</div></div>
+          <div class="stat"><div class="k" data-i18n="studio.preview.format">Format</div><div class="v" id="rFormat">—</div></div>
+        </div>
+        <div class="links">
+          <a id="dlBtn" href="#" download data-i18n="studio.preview.download">Download</a>
+          <a id="openBtn" href="#" target="_blank" rel="noopener" data-i18n="studio.preview.open">Open</a>
+          <a id="copyBtn" href="#" data-i18n="studio.preview.copyUrl">Copy URL</a>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px;margin-bottom:0">
+        <div class="card-title"><h2 data-i18n="studio.preview.payloadTitle">Request payload</h2></div>
+        <pre class="payload" id="payloadView"></pre>
+      </div>
     </div>
-    <div class="lib-foot" id="libFoot" style="display:none">
-      <button type="button" class="lib-select-btn" id="libSelectBtn" data-i18n-attr="title:library.btn.select" title="Multi-select tracks" data-i18n="library.btn.select">☐ Select</button>
-      <button type="button" class="lib-export" id="libExportJSON" data-i18n-attr="title:library.btn.exportJSON" title="Export library as JSON" data-i18n="library.btn.exportJSON">↓ JSON</button>
-      <button type="button" class="lib-export" id="libExportCSV"  data-i18n-attr="title:library.btn.exportCSV" title="Export library as CSV" data-i18n="library.btn.exportCSV">↓ CSV</button>
-      <button type="button" class="lib-del-all" id="libDelAll" data-i18n-attr="title:library.btn.clearAll" title="Delete all history" data-i18n="library.btn.clearAll">Clear all</button>
-    </div>
-    <div class="lib-select-bar" id="libSelectBar" style="display:none">
-      <span class="lib-select-count" id="libSelectCount"><span data-i18n="library.select.count">selected</span></span>
-      <button type="button" id="libSelectAll" data-i18n-attr="title:library.select.all" title="Select all visible" data-i18n="library.select.all">All</button>
-      <button type="button" id="libSelectNone" data-i18n-attr="title:library.select.none" title="Clear selection" data-i18n="library.select.none">None</button>
-      <button type="button" id="libSelectZip" data-i18n-attr="title:library.select.zip" title="Download selected as ZIP" disabled data-i18n="library.select.zip">↓ ZIP</button>
-      <button type="button" id="libSelectFav" data-i18n-attr="title:library.select.fav" title="Toggle favorite" disabled data-i18n="library.select.fav">★ Fav</button>
-      <button type="button" id="libSelectDel" data-i18n-attr="title:library.select.del" title="Move selected to trash" disabled data-i18n="library.select.del">🗑</button>
-      <button type="button" class="lib-select-cancel" id="libSelectCancel" data-i18n-attr="title:library.select.cancel" title="Exit select mode" data-i18n="library.select.cancel">✕</button>
+
+    <!-- Phase 3: History (IDB 持久化 + 搜索 + 收藏) -->
+    <div class="lib-section" id="librarySection">
+      <div class="lib-head">
+        <h2><span data-i18n="library.title">History</span> <span class="lib-count" id="libCount">—</span></h2>
+        <div class="lib-tabs" id="libTabs">
+          <button type="button" class="lib-tab selected" data-filter="all" data-i18n="library.tab.all">All</button>
+          <button type="button" class="lib-tab" data-filter="favorite" data-i18n="library.tab.favorites">★ Favorites</button>
+          <button type="button" class="lib-tab" data-filter="trash" data-i18n="library.tab.trash">🗑 Trash</button>
+        </div>
+      </div>
+      <div class="lib-search">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <circle cx="11" cy="11" r="7"/><line x1="20" y1="20" x2="16.65" y2="16.65"/>
+        </svg>
+        <input type="text" id="libSearch" data-i18n-attr="placeholder:library.searchPlaceholder" placeholder="Search title, lyrics, prompt…" autocomplete="off" />
+        <button type="button" class="lib-clear" id="libSearchClear" title="Clear search" aria-label="Clear search" style="display:none">×</button>
+      </div>
+      <div class="lib-list" id="libList"></div>
+      <div class="lib-empty" id="libEmpty" style="display:none">
+        <div class="lib-empty-icon">♪</div>
+        <div class="lib-empty-text" id="libEmptyText"><span data-i18n="library.empty.title">No saved tracks yet.</span><br><span data-i18n="library.empty.subtitle">Generated tracks will appear here automatically.</span></div>
+      </div>
+      <div class="lib-foot" id="libFoot" style="display:none">
+        <button type="button" class="lib-select-btn" id="libSelectBtn" data-i18n-attr="title:library.btn.select" title="Multi-select tracks" data-i18n="library.btn.select">☐ Select</button>
+        <button type="button" class="lib-export" id="libExportJSON" data-i18n-attr="title:library.btn.exportJSON" title="Export library as JSON" data-i18n="library.btn.exportJSON">↓ JSON</button>
+        <button type="button" class="lib-export" id="libExportCSV"  data-i18n-attr="title:library.btn.exportCSV" title="Export library as CSV" data-i18n="library.btn.exportCSV">↓ CSV</button>
+        <button type="button" class="lib-del-all" id="libDelAll" data-i18n-attr="title:library.btn.clearAll" title="Delete all history" data-i18n="library.btn.clearAll">Clear all</button>
+      </div>
+      <div class="lib-select-bar" id="libSelectBar" style="display:none">
+        <span class="lib-select-count" id="libSelectCount"><span data-i18n="library.select.count">selected</span></span>
+        <button type="button" id="libSelectAll" data-i18n-attr="title:library.select.all" title="Select all visible" data-i18n="library.select.all">All</button>
+        <button type="button" id="libSelectNone" data-i18n-attr="title:library.select.none" title="Clear selection" data-i18n="library.select.none">None</button>
+        <button type="button" id="libSelectZip" data-i18n-attr="title:library.select.zip" title="Download selected as ZIP" disabled data-i18n="library.select.zip">↓ ZIP</button>
+        <button type="button" id="libSelectFav" data-i18n-attr="title:library.select.fav" title="Toggle favorite" disabled data-i18n="library.select.fav">★ Fav</button>
+        <button type="button" id="libSelectDel" data-i18n-attr="title:library.select.del" title="Move selected to trash" disabled data-i18n="library.select.del">🗑</button>
+        <button type="button" class="lib-select-cancel" id="libSelectCancel" data-i18n-attr="title:library.select.cancel" title="Exit select mode" data-i18n="library.select.cancel">✕</button>
+      </div>
     </div>
   </div>
+  <button type="button" class="rail-restore-btn" data-restore="preview" data-i18n-attr="aria-label:rail.restoreAria" aria-label="展开预览/历史列" aria-hidden="true">
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <polyline points="9 6 15 12 9 18"/>
+    </svg>
+  </button>
 </aside>
 </div>
 
@@ -1099,6 +1292,7 @@ In a familiar corner, a stranger gazes"></textarea>
 <script src="js/sessions.js"></script>
 <script src="js/music.js"></script>
 <script src="js/jobs-rail.js"></script>
+<script src="js/rail-fold.js"></script>
 <script src="js/app.js"></script>
 <script>
   // Phase 0 smoke test: 打印命名空间 + state + idb readiness
