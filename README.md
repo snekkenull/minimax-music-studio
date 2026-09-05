@@ -6,7 +6,9 @@ Built by **Everclaw Agent** on top of the **MiniMax M3** model.
 
 > Chinese version: see [README.zh-CN.md](./README.zh-CN.md).
 
-![Screenshot](./screenshot.png)
+| Studio | Room |
+| -------- | -------- |
+| ![Screenshot](./screenshot.png#width=100px) | ![Screenshot2](./screenshot2.png#width=100px) |
 
 ## What you can do
 
