@@ -578,6 +578,38 @@
     // Phase 9: 优先用本地 blob 喂 audio 元素,绕开 CORS
     _setAudioSrc(task.audioBlob || null, task.audioUrl || null);
 
+    // Phase 2: 通知 audioBus(3D HUD 订阅)有曲目就绪。
+    // renderResult 同时被"生成完成"和"Library replay"调用,只用一个通用 source。
+    if ((task.audioBlob || task.audioUrl) && window.audioBus) {
+      const baseName = (task.title && task.title.trim())
+        || (task.prompt ? task.prompt.trim().replace(/\s+/g, ' ').slice(0, 40) : '')
+        || `track-${(task.idx ?? 0) + 1}`;
+      window.audioBus.setTrack({
+        id: task.id || `task-${task.idx ?? 0}`,
+        title: baseName,
+        source: 'generate', // 生成/重生成都算 "just generated"
+      });
+    }
+
+    // Phase 2.5: 生成完成 → 自动进 3D 房间 + 自动播放,核心 UX 闭环。
+    // 触发场景: task:success 事件 / 批量完成 / resume 补完(都是"刚生成完"的语义)
+    // 排除: 已在 3D 模式时 enter3D 内部 if (active) return 幂等,不会重置。
+    if (task.audioBlob || task.audioUrl) {
+      // 1) 切到 3D 视图。Phase 3b: 优先走路由,让左侧 nav 高亮也同步。
+      try {
+        if (window.__3d?.goRoute) {
+          window.__3d.goRoute('stage');
+        } else if (window.__3d?.enter) {
+          window.__3d.enter();
+        }
+      } catch (e) { console.warn('[3d] auto-enter failed:', e); }
+      // 2) 自动播放(用户点 Generate = 用户手势,浏览器不会拒)
+      const audio = document.getElementById('audioEl');
+      if (audio && audio.paused) {
+        audio.play().catch((e) => console.warn('[audio] auto-play failed:', e));
+      }
+    }
+
     const ts = new Date(task.startedAt).toLocaleTimeString();
     const displayPrompt = task.prompt || state.prompt;
     const displayTitle = task.title || (displayPrompt ? displayPrompt.slice(0, 40) : '');
@@ -2043,6 +2075,14 @@
       // Phase 22: reveal 曲目面板(切 emptyState→resultBox + 填元数据),否则 src 设了也看不见
       _showResultForDoc(doc);
       _setAudioSrc(doc.audioBlob || null, doc.audioUrl || null);
+      // Phase 2: 通知 audioBus
+      if (window.audioBus) {
+        window.audioBus.setTrack({
+          id,
+          title: doc.title || `track ${(doc.idx ?? 0) + 1}`,
+          source: 'library',
+        });
+      }
       // best-effort autoplay;浏览器策略失败时静默,用户点 audioEl 控件可继续
       const audio = document.getElementById('audioEl');
       audio?.play?.().catch(() => { /* autoplay blocked — ignore */ });
@@ -2343,6 +2383,17 @@
   }
 
   function init() {
+    // Phase 2: 把 audioEl 挂上 audioBus(一次性),3D 场景的 HUD/扬声器都能订阅
+    // 用 new URL 拼接相对路径,绕开某些 bundler 的 '..' 警告
+    try {
+      const audioEl0 = document.getElementById('audioEl');
+      if (audioEl0) {
+        const busUrl = new URL('./3d/audio-bus.js', document.baseURI).href;
+        import(/* @vite-ignore */ busUrl).then((mod) => mod.attachAudioBus(audioEl0))
+          .catch((e) => console.warn('[audioBus] attach failed:', e));
+      }
+    } catch (_) { /* noop */ }
+
     initSelects();
     initTagBar();
     // Phase 23: jobs-rail 的 "Resume" 按钮 → 复用现成 resume 协议
@@ -2433,6 +2484,24 @@
 
     // Phase 31: 还原 rail fold 状态(LS → DOM class)
     if (root.RailFold) root.RailFold.init();
+
+    // Phase C1: Library auto-loop 事件订阅(由 3D 端 dispatch,非侵入式)
+    // - empty: 库无可播 → 轻量 nudge 引导去 #create
+    // - ended: 切了下一首 → 静默(HUD 标题自然更新),只在 count>1 时静默 log
+    window.addEventListener('minimax:autoloop:empty', (e) => {
+      // 仅在 3D 启动那次空库时弹 toast(避免用户后续删完库时再骚扰)
+      const reason = e.detail?.reason || 'no-playable';
+      const msg = reason === 'no-library'
+        ? 'No library yet — generate your first track in 创作台.'
+        : 'No tracks to play — try generating a new one.';
+      showStatus(msg, 'info', 3200);
+    });
+    window.addEventListener('minimax:autoloop:ended', (e) => {
+      // console 留个 trace,方便调试;用户端静默
+      if (e.detail?.count > 1) {
+        console.log('[auto-loop] playing ' + e.detail.count + ' tracks cyclically');
+      }
+    });
   }
 
   if (document.readyState === 'loading') {

@@ -87,6 +87,9 @@
       'nav.brand': 'Minimax',
       'nav.brandSub': 'Creative Studio',
       'nav.github': '项目仓库',
+      'nav.stage': '3D Home',
+      'nav.create': '创作',
+      'nav.library': '库',
 
       'rail.fold': '折叠',
       'rail.restore': '展开',
@@ -366,6 +369,9 @@
       'nav.brand': 'Minimax',
       'nav.brandSub': 'Creative Studio',
       'nav.github': 'Source',
+      'nav.stage': '3D Home',
+      'nav.create': 'Create',
+      'nav.library': 'Library',
 
       'rail.fold': 'Collapse',
       'rail.restore': 'Expand',

@@ -7,10 +7,30 @@
   <link rel="stylesheet" href="theme.css" />
   <script src="js/theme.js"></script>
   <script src="js/i18n.js"></script>
+  <!-- 3D Home Audio — importmap:让 jsm 模块能 import 'three' 解析到本地 -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "./3d/lib/three.module.js",
+      "three/addons/": "./3d/lib/"
+    }
+  }
+  </script>
+  <!-- F13-F: 预加载 audioBus 模块(立即挂上 window.audioBus + 触发 side-effect)
+       避免 user 在 2D 模式首次点 Generate → audio.play() 早于 js/app.js 内的
+       动态 import('./3d/audio-bus.js') 完成 → bus 的 'play'/'pause'/'ended'
+       addEventListener 还没挂到 audioEl → 事件链断 → 3D 灯/波形全静默。
+       这里只 import 模块让 bus 单例就位,attachAudioBus 仍由 js/app.js init() 调。 -->
+  <script type="module">
+    import('./3d/audio-bus.js').catch((e) => console.warn('[audioBus] preload failed:', e));
+  </script>
   <style>
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;background:var(--bg-base);color:var(--text-primary);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",Inter,"PingFang SC","Microsoft YaHei",sans-serif;font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;font-feature-settings:"tnum" 1,"ss01" 1}
 body{background:radial-gradient(1200px 600px at 80% -10%,var(--bg-accent-a-strong),transparent 60%),radial-gradient(900px 500px at -10% 110%,var(--bg-accent-b-strong),transparent 60%),var(--bg-base);min-height:100vh}
+/* F14-F: 当 .app 被隐藏且 stage3d 还没完全接管时(瞬时帧)body 不要再透出浅紫渐变
+   用 body.is-stage-active 覆盖,确保背景 = #14141a,跟 3D 房间无缝 */
+body.is-stage-active{background:#14141a}
 .app{--rail-l-w:268px;--rail-r-w:360px;display:grid;grid-template-columns:var(--rail-l-w) 1fr var(--rail-r-w);height:100vh;min-width:0}
 /* P31 折叠后中间面板必须扩展:grid 列宽跟随状态(经 :has() 触发) */
 .app:has(.rail.is-folded){--rail-l-w:40px}
@@ -20,9 +40,10 @@ body{background:radial-gradient(1200px 600px at 80% -10%,var(--bg-accent-a-stron
 .rail-brand .dot{width:22px;height:22px;border-radius:6px;background:linear-gradient(135deg,var(--accent),var(--accent-gradient-end));box-shadow:0 0 0 1px var(--brand-dot-shadow),0 4px 14px var(--brand-dot-glow)}
 .rail-brand .name{font-size:13px;font-weight:600;letter-spacing:-.01em}
 .rail-brand .sub{font-size:11px;color:var(--text-muted);margin-top:1px}
-.nav-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--radius-sm);color:var(--text-secondary);font-size:13px;transition:background .12s,color .12s;cursor:pointer}
+.nav-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--radius-sm);color:var(--text-secondary);font-size:13px;transition:background .12s,color .12s;cursor:pointer;background:transparent;border:0;width:calc(100% - 12px);margin:0 6px;text-align:left;font:inherit}
 .nav-item:hover{background:var(--bg-elev-2);color:var(--text-primary)}
 .nav-item.active{background:var(--accent-soft);color:var(--text-primary)}
+.nav-item:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .nav-item .ico{width:16px;height:16px;opacity:.8}
 .rail-section{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);padding:16px 10px 6px}
 /* Phase 14: "新建任务" 操作型 nav-item(沿用 nav-item 视觉,加 active feedback) */
@@ -738,8 +759,287 @@ pre.payload{font-family:"SF Mono",Menlo,monospace;font-size:11.5px;line-height:1
   .lib-select-bar button{padding:3px 6px;font-size:10px}
 }
 </style>
+<style>
+/* === 3D Home Audio stage ============================================ */
+#stage3d {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background: #14141a;  /* F14-F: 深色兜底,防止进场时 body 透出灰白闪烁 */
+  opacity: 0;
+  pointer-events: none;
+  /* F14-F: 进场瞬时显示(0s) — 0.18s 淡入会让 body radial-gradient 透出,形成灰白闪烁块 */
+  transition: none;
+}
+#stage3d.is-active {
+  opacity: 1;
+  pointer-events: auto;
+  transition: none;  /* 进场: 不淡入, 立即出现 */
+}
+/* E3: 退场动画期间,保留淡出但允许 app 接住点击(返回创作台) */
+#stage3d.is-removing {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .18s ease;  /* 退场: 淡出 0.18s */
+}
+#stage3d canvas { display: block; width: 100%; height: 100%; }
+/* 当 3D 激活时,把主 .app 隐藏。
+   F12-F: visibility:hidden 保留 layout 空间,会导致 #stage3d(z-index 0).app(z-index auto, DOM 在后)
+   形成"app 仍在 .app layout 区上画空框,3D 渐显时被遮"的视觉错位。改用 display:none
+   完全从 layout 移除,让 #stage3d (position:fixed; inset:0) 100% 可见。
+   DOM 仍在,phase 2 还能读 audioEl。 */
+.app.is-hidden-by-stage {
+  display: none;
+}
+/* 浮动切换按钮 */
+.stage3d-toggle {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 60;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: 1px solid var(--border-soft, rgba(255,255,255,.12));
+  border-radius: 999px;
+  background: rgba(20,20,26,.72);
+  color: var(--text-primary, #f5f5f7);
+  font: 500 13px/1 -apple-system, BlinkMacSystemFont, "Inter", "PingFang SC", sans-serif;
+  letter-spacing: .01em;
+  cursor: pointer;
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  box-shadow: 0 8px 24px rgba(0,0,0,.35);
+  transition: transform .15s ease, background .15s ease;
+}
+.stage3d-toggle:hover { transform: translateY(-1px); background: rgba(30,30,38,.85); }
+.stage3d-toggle .ico { width: 14px; height: 14px; opacity: .9; }
+/* 3D 场景里的 HUD: 顶上极简浮层(返回按钮) */
+.stage3d-hud {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  z-index: 55;
+  display: none;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: rgba(20,20,26,.55);
+  color: #f5f5f7;
+  font: 500 12px/1 -apple-system, BlinkMacSystemFont, "Inter", sans-serif;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+#stage3d.is-active ~ .stage3d-hud { display: inline-flex; }
+.stage3d-hud button {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,.15);
+  color: inherit;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font: inherit;
+  cursor: pointer;
+  transition: background .12s;
+}
+.stage3d-hud button:hover { background: rgba(255,255,255,.08); }
+/* 返回按钮:图标+文字横排,跟退出按钮视觉一致 */
+.stage3d-hud #stage3dSettings { display: inline-flex; align-items: center; gap: 6px; }
+.stage3d-hud #stage3dSettings svg { opacity: .85; }
+.stage3d-hud .dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #52ff7a; box-shadow: 0 0 8px #52ff7a;
+  animation: stage3d-pulse 1.6s ease-in-out infinite;
+}
+@keyframes stage3d-pulse { 50% { opacity: .35; } }
+
+/* ---------- Phase 2: 3D 内的悬浮 HUD（标题+播放+进度）---------- */
+.stage3d-hud-panel {
+  position: absolute;
+  left: 50%;
+  bottom: 32px;
+  transform: translateX(-50%);
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 440px;
+  max-width: 600px;
+  padding: 14px 18px 16px;
+  border-radius: 16px;
+  background: rgba(20,20,26,.55);
+  color: #f5f5f7;
+  font: 500 13px/1.3 -apple-system, BlinkMacSystemFont, "Inter", sans-serif;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 0 8px 32px rgba(0,0,0,.35);
+  pointer-events: auto;
+  user-select: none;
+}
+.stage3d-hud-panel .hud-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.stage3d-hud-panel .hud-track {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.stage3d-hud-panel .hud-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.stage3d-hud-panel .hud-sub {
+  font-size: 11px;
+  color: rgba(255,255,255,.55);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.stage3d-hud-panel .hud-stats {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  flex: 0 0 auto;
+}
+.stage3d-hud-panel .hud-dsp {
+  letter-spacing: .04em;
+  font-weight: 600;
+  color: rgba(255,255,255,.5);
+}
+.stage3d-hud-panel .hud-dsp.hud-dsp-on { color: #1ed760; }
+.stage3d-hud-panel .hud-dsp.hud-dsp-off { color: #ff7a59; }
+.stage3d-hud-panel .hud-db {
+  color: rgba(255,255,255,.7);
+  font-size: 11px;
+}
+.stage3d-hud-panel .hud-db.hud-db-hot { color: #ff5a5a; font-weight: 600; }
+
+/* ---------- F14-A: VHS 滤镜切换按钮 ---------- */
+.stage3d-hud-panel .hud-vhs {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 4px;
+  padding: 3px 8px 3px 6px;
+  background: rgba(255,255,255,.06);
+  color: rgba(255,255,255,.55);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  font-family: ui-monospace, "SF Mono", "Roboto Mono", monospace;
+  cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s, transform .12s;
+  -webkit-tap-highlight-color: transparent;
+}
+.stage3d-hud-panel .hud-vhs:hover {
+  background: rgba(255,255,255,.10);
+  color: rgba(255,255,255,.80);
+  border-color: rgba(255,255,255,.22);
+}
+.stage3d-hud-panel .hud-vhs:active { transform: scale(0.96); }
+.stage3d-hud-panel .hud-vhs svg { width: 12px; height: 12px; flex: 0 0 auto; }
+.stage3d-hud-panel .hud-vhs .hud-vhs-label { line-height: 1; }
+.stage3d-hud-panel .hud-vhs.is-on {
+  background: rgba(255, 60, 120, .18);
+  color: #ff80b0;
+  border-color: rgba(255, 60, 120, .55);
+  box-shadow: 0 0 8px rgba(255, 60, 120, .35);
+}
+.stage3d-hud-panel .hud-vhs.is-on:hover {
+  background: rgba(255, 60, 120, .28);
+  color: #ffa0c8;
+}
+.stage3d-hud-panel .hud-play {
+  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.95);
+  color: #111;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform .12s, background .12s;
+}
+.stage3d-hud-panel .hud-play:hover { background: #fff; transform: scale(1.06); }
+.stage3d-hud-panel .hud-play svg { width: 18px; height: 18px; }
+.stage3d-hud-panel .hud-progress {
+  height: 2px;
+  border-radius: 2px;
+  background: rgba(255,255,255,.12);
+  overflow: hidden;
+}
+.stage3d-hud-panel .hud-progress-fill {
+  height: 100%;
+  width: 0;
+  background: linear-gradient(90deg, #52ff7a, #1ed760);
+  border-radius: 2px;
+  transition: width .25s linear;
+}
+
+/* ---------- E5: 24 段 LED 频谱电平条 ---------- */
+.stage3d-hud-panel .hud-meter {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+}
+.stage3d-hud-panel .hud-meter-segs,
+.stage3d-hud-panel .hud-meter-holds {
+  display: flex;
+  gap: 2px;
+  width: 100%;
+  height: 6px;
+}
+.stage3d-hud-panel .hud-meter-holds { position: relative; margin-top: -8px; }
+.stage3d-hud-panel .hud-meter-seg,
+.stage3d-hud-panel .hud-meter-hold {
+  flex: 1 1 0;
+  border-radius: 1px;
+  transition: opacity .04s linear;
+  opacity: .08;
+}
+.stage3d-hud-panel .hud-meter-seg-green { background: linear-gradient(180deg, #4ade80, #22c55e); }
+.stage3d-hud-panel .hud-meter-seg-yellow { background: linear-gradient(180deg, #fde047, #facc15); }
+.stage3d-hud-panel .hud-meter-seg-red { background: linear-gradient(180deg, #fb7185, #ef4444); }
+.stage3d-hud-panel .hud-meter-hold-green { background: #bbf7d0; }
+.stage3d-hud-panel .hud-meter-hold-yellow { background: #fef08a; }
+.stage3d-hud-panel .hud-meter-hold-red { background: #fecaca; }
+</style>
 </head>
 <body>
+<!-- 3D Home Audio 容器(常驻 DOM,按需激活) -->
+<div id="stage3d" aria-hidden="true"></div>
+<div class="stage3d-hud" role="toolbar" aria-label="3D Stage HUD">
+  <span class="dot" aria-hidden="true"></span>
+  <span>3D Home Audio</span>
+  <button type="button" id="stage3dSettings" aria-label="返回创作台（生成/Library/历史）" title="返回创作台">
+    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M9 18l-6-6 6-6"/>
+      <path d="M21 13H3"/>
+    </svg>
+    <span>创作台</span>
+  </button>
+  <button type="button" id="stage3dExit" aria-label="退出 3D 视图">退出</button>
+</div>
+<!-- 浮动切换按钮:放在 .app 之后,确保它一直在最上层 -->
 <div class="app">
 <aside class="rail" data-rail="jobs">
   <div class="rail-head">
@@ -761,10 +1061,23 @@ pre.payload{font-family:"SF Mono",Menlo,monospace;font-size:11.5px;line-height:1
       <div><div class="name" data-i18n="nav.brand">Minimax</div><div class="sub" data-i18n="nav.brandSub">Creative Studio</div></div>
     </div>
     <div class="rail-section" data-i18n="common.studioSection">Studio</div>
-    <div class="nav-item active">
-      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-      <span data-i18n="nav.music">Music Generation</span>
-    </div>
+    <!-- Phase 3b: 路由化导航(4 个 view:stage / create / library / history) -->
+    <button type="button" class="nav-item" data-route="stage" aria-label="3D Home Audio 视图">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 9l9-6 9 6v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      <span data-i18n="nav.stage">3D Home</span>
+    </button>
+    <button type="button" class="nav-item" data-route="create" aria-label="创作台(生成表单)">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg>
+      <span data-i18n="nav.create">创作</span>
+    </button>
+    <button type="button" class="nav-item" data-route="library" aria-label="作品库">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+      <span data-i18n="nav.library">库</span>
+    </button>
+    <button type="button" class="nav-item" data-route="history" aria-label="任务历史">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      <span data-i18n="nav.history">历史</span>
+    </button>
     <div class="rail-section" data-i18n="nav.sessions">任务</div>
     <button type="button" class="nav-item nav-item-action" id="newTaskBtn" data-i18n-attr="aria-label:nav.newTask" aria-label="新建任务">
       <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
@@ -776,13 +1089,8 @@ pre.payload{font-family:"SF Mono",Menlo,monospace;font-size:11.5px;line-height:1
       <span data-i18n="nav.noSessions">暂无任务</span>
     </div>
     <button type="button" class="tasks-more" id="tasksMore" style="display:none" data-i18n="nav.task.more">Show more</button>
-    <div class="rail-foot">
-      <a href="https://github.com/snekkenull/minimax-music-studio" target="_blank" rel="noopener noreferrer" class="rail-foot-link" data-i18n-attr="aria-label:attr.aria.githubRepo" aria-label="Open project repository on GitHub (new window)">
-        <svg class="rail-foot-ico" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true" focusable="false">
-          <path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
-        </svg>
-        <span data-i18n="nav.github">项目仓库</span>
-      </a>
+    <div class="rail-foot" hidden>
+      <!-- 公开仓库占位:暂时隐藏,待配置真实 URL 后恢复 <a class="rail-foot-link"> -->
     </div>
   </div>
   <button type="button" class="rail-restore-btn" data-restore="jobs" data-i18n-attr="aria-label:rail.restoreAria" aria-label="展开导航/任务列" aria-hidden="true">
@@ -1314,6 +1622,423 @@ In a familiar corner, a stranger gazes"></textarea>
     apiKey: !!window.state.apiKey, batchSize: window.state.batchSize,
     sampleRate: window.state.sampleRate, bitrate: window.state.bitrate, format: window.state.format,
   }));
+</script>
+<!-- 3D Home Audio — Phase 1: 切换按钮 + 场景加载/卸载 -->
+<button type="button" class="stage3d-toggle" id="stage3dEnter" aria-label="进入 3D Home Audio 视图">
+  <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M3 9l9-6 9 6v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+    <polyline points="9 22 9 12 15 12 15 22"/>
+  </svg>
+  <span>3D Home</span>
+</button>
+
+<script type="module">
+/**
+ * 3D Home Audio — Stage Controller (Phase 1)
+ * 单一入口:点击按钮懒加载场景模块,切换时挂载/卸载。
+ * 不影响现有 .app 任何状态。
+ */
+const stageEl = document.getElementById('stage3d');
+const appEl   = document.querySelector('.app');
+const enterBtn = document.getElementById('stage3dEnter');
+const exitBtn  = document.getElementById('stage3dExit');
+const settingsBtn = document.getElementById('stage3dSettings');
+
+let sceneHandle = null;     // initScene 返回的对象
+let sceneModule = null;     // 动态 import 的模块引用(用于 dispose)
+let active = false;
+let enterInProgress = null; // reentrancy guard:promise 让并发 enter3D 共享同一次初始化
+let _themeObserver = null;  // E1: 监听 <html data-theme> 变化,驱动 3D 场景灯光
+
+// ─── Phase C1: Library auto-loop on 3D enter ──────────────────────
+// 用户进入 3D 房间时,若 audioEl 当前没有曲目,自动从 Library 拉列表
+// 按"老→新"顺序循环播放;Library 为空时静默(让 3D 房间"哑"也 OK,不强制)。
+// 重要约束:
+//   · 不抢 generate / library replay 路径(它们已设过 src) — 仅在 src 为空时接管
+//   · 不写 3D 端 UI(toast 由 app.js 端通过 audioBus 自定义事件接管)
+//   · 用现有 audioEl.play() — autoplay 失败静默(浏览器策略,跟 Library replay 同款)
+const AUTO_LOOP_ENDED = 'minimax:autoloop:ended';   // 通知 app.js 切了下一首
+const AUTO_LOOP_EMPTY = 'minimax:autoloop:empty';   // 通知 app.js 库是空的
+let _autoLoopQueue = [];        // 当前循环队列 [{id,title,audioBlob,audioUrl}]
+let _autoLoopIdx   = -1;        // 当前播放的 idx( -1 = 未启循环)
+let _autoLoopOn    = false;     // 是否处于 auto-loop 模式
+let _autoLoopUnsub = null;      // ended 监听解绑函数
+const audioElRef   = document.getElementById('audioEl');
+
+// ─── F13-C: samples/sample.mp3 兜底音源 ─────────────────────
+// 当 Library 没曲可播(auto-loop empty),把项目自带的 samples/sample.mp3
+// 塞进 audioEl,让 3D 房间的灯带/投影幕有真实节拍可响应。
+//
+// 约束(跟 auto-loop 同款):
+//  · 仅在 audioEl 空闲(无 src / src 为空字符串)时介入,不抢用户已加载曲目
+//  · 不写 3D 端 UI(autoplay 失败静默,跟 Library replay 行为一致)
+//  · 通过 audioBus.setTrack() 走 track:loaded → HUD 标题自然更新
+//  · 用户随后点 Library / Generate,会自然替换 src,兜底即静默退出
+const SAMPLE_FALLBACK_URL = 'samples/sample.mp3';
+const SAMPLE_FALLBACK_TITLE = 'Sample Track';
+const SAMPLE_FALLBACK_ID = 'sample-mp3';
+let _sampleFallbackInstalled = false;
+
+function _installSampleFallback() {
+  if (_sampleFallbackInstalled) return;
+  _sampleFallbackInstalled = true;
+  // F13-D: 记录 sample-fallback 是否已激活;用户主动 pause 后,不要再被
+  // 后续 AUTO_LOOP_EMPTY 事件重新塞 sample(否则用户按了 pause 又自动
+  // 重启,会误以为"暂停后无法继续")。只在 audioEl 真正"空"时介入。
+  let _sampleActive = false;
+  window.addEventListener(AUTO_LOOP_EMPTY, () => {
+    const a = audioElRef;
+    if (!a) return;
+    // 已被用户/auto-loop 占了 → 兜底不接管
+    if (a.src && a.currentTime > 0) return;
+    if (a.src) return;   // 有 src 但停在 0:00 → 也别打断,等用户主动操作
+    if (_sampleActive) return;   // F13-D: 用户已暂停 → 别重启
+    try {
+      a.src = SAMPLE_FALLBACK_URL;
+      if (window.audioBus) {
+        window.audioBus.setTrack({
+          id: SAMPLE_FALLBACK_ID,
+          title: SAMPLE_FALLBACK_TITLE,
+          source: 'library',   // HUD 端走 library 分支(无 download 按钮)
+        });
+      }
+      _sampleActive = true;
+      a.play().catch(() => { /* autoplay policy silent */ });
+      console.info('[sample-fallback] loaded', SAMPLE_FALLBACK_URL);
+      // F13-D: 用户一旦主动选了 Library 曲目或重新进入 3D 房间时重置标志
+      a.addEventListener('emptied', () => { _sampleActive = false; });
+      a.addEventListener('ended',   () => { _sampleActive = false; });
+    } catch (e) {
+      console.warn('[sample-fallback] load failed', e);
+    }
+  });
+}
+_installSampleFallback();
+
+function _autoLoopDetach() {
+  if (_autoLoopUnsub) { _autoLoopUnsub(); _autoLoopUnsub = null; }
+  _autoLoopOn = false;
+}
+
+function _autoLoopAttach() {
+  if (_autoLoopOn || !window.audioBus) return;
+  _autoLoopUnsub = window.audioBus.on('ended', _autoLoopNext);
+  _autoLoopOn = true;
+}
+
+function _autoLoopNext() {
+  if (!_autoLoopQueue.length) return;
+  _autoLoopIdx = (_autoLoopIdx + 1) % _autoLoopQueue.length;
+  const d = _autoLoopQueue[_autoLoopIdx];
+  // 通过 app.js 暴露的 playFromLibrary 走标准路径(设 src + setTrack + play)
+  // 这样 Library 右栏的"当前播放"高亮 / play 按钮状态都同步
+  try {
+    if (typeof window.MusicStudio?._playFromLibrary === 'function') {
+      window.MusicStudio._playFromLibrary(d.id, { autoplay: true });
+    } else {
+      // 兜底:直接 set src + bus + play(不依赖 app.js)
+      _setAudioSrcFallback(d);
+    }
+  } catch (e) {
+    console.warn('[auto-loop] next failed', e);
+  }
+}
+
+function _setAudioSrcFallback(d) {
+  const a = audioElRef;
+  if (!a) return;
+  if (d.audioBlob) {
+    const url = URL.createObjectURL(d.audioBlob);
+    a.src = url;
+  } else if (d.audioUrl) {
+    a.src = d.audioUrl;
+  }
+  if (window.audioBus) {
+    window.audioBus.setTrack({
+      id: d.id,
+      title: d.title || ('track ' + ((d.idx ?? 0) + 1)),
+      source: 'library',
+    });
+  }
+  a.play().catch(() => { /* autoplay policy silent */ });
+}
+
+/**
+ * 尝试从 Library 拉 oldest→newest 队列并启动循环。
+ * 仅在 audioEl 当前无 src 时调用,避免抢断用户主动播放的曲目。
+ */
+async function _autoLoopStart() {
+  if (!audioElRef) return;
+  // 已加载曲目 → 不接管(可能刚 generate 完成 / 刚 Library 点击)
+  if (audioElRef.src && audioElRef.currentTime > 0) return;
+  if (audioElRef.src) {
+    // 有 src 但在 0:00 — 仍视为"没在播",只补一个 ended 监听
+    _autoLoopQueue = [];  // 无队列,只监听用户当前这首
+    _autoLoopAttach();
+    return;
+  }
+  // 库为空 / API 不在 — 静默
+  const lib = window.MusicStudio?.library;
+  if (!lib?.listActive) {
+    window.dispatchEvent(new CustomEvent(AUTO_LOOP_EMPTY, { detail: { reason: 'no-library' } }));
+    return;
+  }
+  let docs;
+  try { docs = await lib.listActive(); }
+  catch (e) {
+    console.warn('[auto-loop] listActive failed', e);
+    return;
+  }
+  // 过滤:必须有 audio (Blob 或 URL),且 status=success
+  const playable = (docs || []).filter((d) =>
+    d.status === 'success' && (d.audioBlob || d.audioUrl)
+  );
+  if (!playable.length) {
+    window.dispatchEvent(new CustomEvent(AUTO_LOOP_EMPTY, { detail: { reason: 'no-playable' } }));
+    return;
+  }
+  // oldest → newest(listActive 默认是 newest→first, 反转)
+  _autoLoopQueue = playable.slice().reverse();
+  _autoLoopIdx = 0;
+  _autoLoopAttach();
+  // 播第 0 首
+  try {
+    if (typeof window.MusicStudio?._playFromLibrary === 'function') {
+      window.MusicStudio._playFromLibrary(_autoLoopQueue[0].id, { autoplay: true });
+    } else {
+      _setAudioSrcFallback(_autoLoopQueue[0]);
+    }
+    window.dispatchEvent(new CustomEvent(AUTO_LOOP_ENDED, { detail: { count: _autoLoopQueue.length, started: _autoLoopQueue[0].id } }));
+  } catch (e) {
+    console.warn('[auto-loop] start failed', e);
+  }
+}
+
+async function enter3D() {
+  if (active) return;        // 已经在跑 / 跑成功
+  if (enterInProgress) return enterInProgress;  // 并发调用:复用同一次初始化,避免 active 竞态
+  enterInProgress = (async () => {
+  // NOTE: active = true 必须推迟到 initScene 成功之后。
+  // 原因:旧逻辑在 await import 之前就 active=true + is-active + hide app,
+  //   若 initScene 抛错 → exit3D 把 active=false + 移除 is-active →
+  //   第二次 enter3D 会通过 if (active) return 阻挡,但用户看到的是"永远黑屏,
+  //   必须刷新"。修复:把"标记已就绪"放到 initScene 成功之后,并发调用复用同一 promise。
+  enterBtn.style.display = 'none';
+  appEl.classList.add('is-hidden-by-stage');
+  // F14-F: 同步把 body 切到深色(覆盖 radial-gradient 浅紫),避免 initScene await 期间
+  //   .app 已被 display:none 但 stage3d 还没 is-active 的"灰白透出"窗口期
+  document.body.classList.add('is-stage-active');
+  // is-active 也推迟到 initScene 成功之后,避免"空 stage 闪一下又消失"的视觉割裂
+  // (老逻辑同步加 is-active 触发了 0.45s 渐显,但 await 期间没有 canvas,渐显看到一片黑)
+  stageEl.setAttribute('aria-hidden', 'false');
+
+  try {
+    if (!sceneModule) {
+      sceneModule = await import('./3d/scene.js');
+    }
+    if (!sceneHandle) {
+      sceneHandle = sceneModule.initScene(stageEl);
+      // 同步当前主题(从已有 document data-attr 读取)
+      const theme = document.documentElement.getAttribute('data-theme') || 'light';
+      // 临时支持 ?theme=dark|light URL 参数跳过 lsStorage / OS preference
+      const urlTheme = new URLSearchParams(location.search).get('theme');
+      const effective = (urlTheme === 'dark' || urlTheme === 'light') ? urlTheme : theme;
+      sceneHandle.setTheme(effective);
+    } else {
+      // 重新挂载:重建 canvas(因为我们 reset 了 stageEl 子节点)
+      sceneHandle = sceneModule.initScene(stageEl);
+      // 重新挂载后也要同步当前主题
+      const theme = document.documentElement.getAttribute('data-theme') || 'light';
+      sceneHandle.setTheme(theme);
+    }
+    // initScene 成功后才标记 active + 可见 — 避免"空 stage 渐显一下又瞬间消失"
+    active = true;
+    stageEl.classList.add('is-active');
+    // E1: 订阅主题切换,让 3D 场景在用户进入后还能跟随主题实时变化
+    // MusicStudioTheme.apply() 会改 data-theme,我们监听 attribute 即可
+    if (!_themeObserver) {
+      _themeObserver = new MutationObserver(() => {
+        if (sceneHandle && active) {
+          const t = document.documentElement.getAttribute('data-theme') || 'light';
+          sceneHandle.setTheme(t);
+        }
+      });
+      _themeObserver.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ['data-theme'],
+      });
+    }
+    // Phase C1: 场景就绪后,若 audioEl 空闲 → 启动 Library auto-loop
+    // 静默失败:任何错误都不应破坏 3D 进入
+    _autoLoopStart().catch((e) => console.warn('[auto-loop] start error', e));
+  } catch (err) {
+    console.error('[3d] init failed:', err);
+    try { document.title = 'ERR:' + (err && (err.stack || err.message || String(err))).slice(0, 1500); } catch (_) {}
+    // 不要调 exit3D() — 它会把 active 翻转,污染并发调用;
+    // 这里只回滚我们 enterBtn / appEl / aria-hidden,不重置 active(它仍是 false)。
+    enterBtn.style.display = '';
+    appEl.classList.remove('is-hidden-by-stage');
+    // F14-F: init 失败时也要恢复 body 背景
+    document.body.classList.remove('is-stage-active');
+    stageEl.setAttribute('aria-hidden', 'true');
+    stageEl.classList.remove('is-active');
+  } finally {
+    enterInProgress = null;
+  }
+  })();
+  return enterInProgress;
+}
+
+function exit3D() {
+  if (!active) return;
+  active = false;
+  // E3: 退场动画(相机远离 + 抬高) + 渐隐。动画结束后再 dispose。
+  // 标记 _exiting 防止重复触发
+  if (sceneHandle) {
+    const handle = sceneHandle;
+    sceneHandle = null;
+    const finish = () => {
+      try { handle.dispose(); } catch (e) { /* noop */ }
+      while (stageEl.firstChild) stageEl.removeChild(stageEl.firstChild);
+    };
+    // 启动退场动画 + 同步让 CSS opacity 走淡出
+    // 容器 opacity 已经在 transition .45s ease 中,加 is-removing 类不改 transition,
+    // 只让 stageEl 的可见度随 CSS 一起淡出。
+    stageEl.classList.add('is-removing');
+    const promise = handle.playExit ? handle.playExit() : Promise.resolve();
+    // 即便 playExit 抛错,也要保证 dispose 一定发生
+    promise.then(finish).catch(finish);
+    // 420ms 兜底超时(防 animation 跑飞)
+    setTimeout(finish, 700);
+  } else {
+    stageEl.classList.remove('is-active');
+    stageEl.classList.remove('is-removing');
+    stageEl.setAttribute('aria-hidden', 'true');
+  }
+  appEl.classList.remove('is-hidden-by-stage');
+  // F14-F: 退出 3D 时恢复 body 浅紫渐变背景
+  document.body.classList.remove('is-stage-active');
+  enterBtn.style.display = '';
+  stageEl.setAttribute('aria-hidden', 'true');
+  stageEl.classList.remove('is-active');
+  // E1: 退场时断开主题观察(避免 dispose 后又触发 setTheme)
+  if (_themeObserver) {
+    _themeObserver.disconnect();
+    _themeObserver = null;
+  }
+}
+
+enterBtn.addEventListener('click', () => goRoute('stage'));
+exitBtn.addEventListener('click', () => goRoute('create'));
+if (settingsBtn) {
+  // Phase 3a: 从 3D 房间"返回创作台"。Phase 3b 后通过 router 跳 #create。
+  settingsBtn.addEventListener('click', () => {
+    try {
+      const cur = window.audioBus?.getTrack?.();
+      if (cur?.id) sessionStorage.setItem('mm.continueId', cur.id);
+    } catch (_) { /* noop */ }
+    goRoute('create');
+  });
+}
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && active) goRoute('create');
+});
+
+// ─── Phase 3b: Hash Router ────────────────────────────────────────
+// 4 个 view: #stage (3D home, 默认) / #create (form 创作) /
+// #library (作品库,在右栏 .preview 内) / #history (任务历史,在左栏 .rail 内)。
+// 设计原则:
+//   · DOM 结构 0 迁移 — Library 还在 .preview,历史还在 .rail,form 还在 .main。
+//     router 只负责:enter/exit 3D + scrollIntoView 对应锚点 + 同步 active 高亮。
+//   · 所有跳转都是 location.hash = '#xxx',因此浏览器前进/后退直接可用。
+//   · 不破坏 audioEl / form state / Library IDB 任何现有逻辑。
+const ROUTES = ['stage', 'create', 'library', 'history'];
+const routeAnchors = {
+  // 'main' 表示滚到 main 顶部(创建视图)
+  // 'library' / 'history' 是真实 DOM 锚点
+  stage:   { anchor: null,        enter3D: true  },
+  create:  { anchor: 'main',      enter3D: false },
+  library: { anchor: 'librarySection', enter3D: false },
+  history: { anchor: 'tasksList', enter3D: false },
+};
+
+function applyRoute(name, opts = {}) {
+  if (!ROUTES.includes(name)) name = 'stage';
+  const cfg = routeAnchors[name];
+
+  // 1) 同步左侧 nav-item active 高亮
+  document.querySelectorAll('.nav-item[data-route]').forEach(b => {
+    b.classList.toggle('active', b.dataset.route === name);
+  });
+
+  // 2) 3D 状态切换
+  if (cfg.enter3D) {
+    if (!active) enter3D();
+  } else {
+    if (active) exit3D();
+  }
+
+  // 3) 滚动到锚点(下一帧,等 visibility 切换完成)
+  if (cfg.anchor) {
+    requestAnimationFrame(() => {
+      const el = cfg.anchor === 'main'
+        ? document.querySelector('.main')
+        : document.getElementById(cfg.anchor);
+      if (el) {
+        // 库/历史可能需要展开左/右栏(若被折叠则先取消折叠)
+        if (name === 'library') {
+          document.querySelector('.preview')?.classList?.remove('is-folded');
+        } else if (name === 'history') {
+          document.querySelector('.rail[data-rail="jobs"]')?.classList?.remove('is-folded');
+        }
+        try { el.scrollIntoView({ behavior: opts.smooth === false ? 'auto' : 'smooth', block: 'start' }); }
+        catch (_) { el.scrollIntoView(); }
+      }
+    });
+  }
+}
+
+function goRoute(name) {
+  const target = '#' + name;
+  if (location.hash === target) {
+    // 同 hash 不触发 hashchange,手动再 apply 一次
+    applyRoute(name);
+  } else {
+    location.hash = target;
+  }
+}
+
+// 左栏路由按钮
+document.querySelectorAll('.nav-item[data-route]').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    e.preventDefault();
+    goRoute(btn.dataset.route);
+  });
+});
+
+// 浏览器前进/后退 + 首次加载
+window.addEventListener('hashchange', () => {
+  const name = (location.hash || '').replace(/^#/, '').trim() || 'stage';
+  applyRoute(name, { smooth: false });
+});
+// 初始:不写 hash 也走 stage
+if (!location.hash) {
+  // 静默设置,避免双触发
+  history.replaceState(null, '', '#stage');
+  applyRoute('stage', { smooth: false });
+} else {
+  const name = location.hash.replace(/^#/, '').trim() || 'stage';
+  applyRoute(name, { smooth: false });
+}
+
+// Phase 2.5: 暴露给 app.js(生成完成后自动 enter3D + 自动 play,核心 UX 闭环)
+window.__3d = {
+  enter: enter3D,
+  exit: exit3D,
+  isActive: () => active,
+  goRoute,           // Phase 3b: app.js 也可触发跳转
+  currentRoute: () => (location.hash || '#stage').replace(/^#/, '') || 'stage',
+};
 </script>
 </body>
 </html>
